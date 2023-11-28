@@ -5,7 +5,7 @@ import torch.nn as nn
 from torch.nn import CrossEntropyLoss
 
 from transformers import AutoConfig, AutoModelForCausalLM, \
-                         LlamaConfig, LlamaModel, LlamaForCausalLM, CLIPImageProcessor
+                         LlamaConfig, LlamaModel, LlamaForCausalLM
 
 from transformers.modeling_outputs import CausalLMOutputWithPast
 
@@ -36,6 +36,8 @@ class ValleyVideoLlamaForCausalLM(LlamaForCausalLM, ValleyVideoMetaForCausalLM):
         self.model = ValleyVideoLlamaModel(config)
 
         self.lm_head = nn.Linear(config.hidden_size, config.vocab_size, bias=False)
+
+        self.image_processor = self.model.vision_tower.image_processor
 
         # Initialize weights and apply final processing
         self.post_init()
@@ -100,7 +102,7 @@ class ValleyVideoLlamaForCausalLM(LlamaForCausalLM, ValleyVideoMetaForCausalLM):
     @torch.no_grad()
     def completion(self, tokenizer, video: str, image: str ,message: list, gen_kwargs:dict, device, frame_mode='fixed',fps=0.5,fixed_frame_number=8, conv_mode = 'v1'):
         if video:
-            images = load_video(video, frame_mode=frame_mode, fps_number= fps, fixed_frame_number= fixed_frame_number)
+            images = load_video(video, self.image_processer, frame_mode=frame_mode, fps_number= fps, fixed_frame_number= fixed_frame_number)
             images = images.permute(1, 0, 2, 3)
             images = images.unsqueeze(0).half().to(device)
             print(images.shape)
@@ -113,18 +115,8 @@ class ValleyVideoLlamaForCausalLM(LlamaForCausalLM, ValleyVideoMetaForCausalLM):
                 image = [Image.open(image)]
             else:
                 image = [image]
-            processor_config = {"crop_size": 224,
-                                "do_center_crop": True,
-                                "do_normalize": True,
-                                "do_resize": True,
-                                "feature_extractor_type": "CLIPFeatureExtractor",
-                                "image_mean": [0.48145466, 0.4578275, 0.40821073],
-                                "image_std":  [0.26862954, 0.26130258,0.27577711],
-                                "resample": 3,
-                                "size": 224
-                                }
-            image_processer = CLIPImageProcessor(**processor_config)
-            images = image_processer.preprocess(
+
+            images = self.image_processer.preprocess(
                 image, return_tensors='pt')['pixel_values'].unsqueeze(0).half().to(device)
             # images = images.permute(1, 0, 2, 3)
             # print(images.shape)
@@ -249,6 +241,8 @@ class ValleyProductLlamaForCausalLM(LlamaForCausalLM, ValleyProductMetaForCausal
 
         self.lm_head = nn.Linear(config.hidden_size, config.vocab_size, bias=False)
 
+        self.image_processor = self.model.vision_tower.image_processor
+
         # Initialize weights and apply final processing
         self.post_init()
 
@@ -312,7 +306,7 @@ class ValleyProductLlamaForCausalLM(LlamaForCausalLM, ValleyProductMetaForCausal
     @torch.no_grad()
     def completion(self, tokenizer, video: str, image: str ,message: list, gen_kwargs:dict, device, frame_mode='fixed',fps=0.5,fixed_frame_number=8, conv_mode = 'v1'):
         if video:
-            images = load_video(video, frame_mode=frame_mode, fps_number= fps, fixed_frame_number= fixed_frame_number)
+            images = load_video(video, self.image_processer, frame_mode=frame_mode, fps_number= fps, fixed_frame_number= fixed_frame_number)
             images = images.permute(1, 0, 2, 3)
             images = images.unsqueeze(0).half().to(device)
             print(images.shape)
@@ -325,18 +319,8 @@ class ValleyProductLlamaForCausalLM(LlamaForCausalLM, ValleyProductMetaForCausal
                 image = [Image.open(image)]
             else:
                 image = [image]
-            processor_config = {"crop_size": 224,
-                                "do_center_crop": True,
-                                "do_normalize": True,
-                                "do_resize": True,
-                                "feature_extractor_type": "CLIPFeatureExtractor",
-                                "image_mean": [0.48145466, 0.4578275, 0.40821073],
-                                "image_std":  [0.26862954, 0.26130258,0.27577711],
-                                "resample": 3,
-                                "size": 224
-                                }
-            image_processer = CLIPImageProcessor(**processor_config)
-            images = image_processer.preprocess(
+
+            images = self.image_processer.preprocess(
                 image, return_tensors='pt')['pixel_values'].unsqueeze(0).half().to(device)
             # images = images.permute(1, 0, 2, 3)
             # print(images.shape)
@@ -443,8 +427,6 @@ class ValleyProductLlamaForCausalLM(LlamaForCausalLM, ValleyProductMetaForCausal
             }
         )
         return model_inputs
-
-
 
 
 AutoConfig.register("valley", ValleyConfig)

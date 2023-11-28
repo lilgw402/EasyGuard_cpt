@@ -2,11 +2,10 @@ import argparse
 import torch
 from torch.utils.data import DataLoader
 from transformers import LlamaTokenizer
-from valley.model.language_model.valley_llama import ValleyLlamaForCausalLM
+from valley.model.language_model.valley_llama import ValleyVideoLlamaForCausalLM, ValleyProductLlamaForCausalLM
 import torch
 import os
 from valley.utils import disable_torch_init
-from transformers import  CLIPImageProcessor
 import os
 import random
 from tqdm import tqdm
@@ -45,13 +44,20 @@ def inference(rank, world_size, args):
 
     device = torch.device('cuda:'+str(this_rank_gpu_index)
                           if torch.cuda.is_available() else 'cpu')
+
+    Model = None
+    if args.model_class == 'valley-video':
+        Model = ValleyVideoLlamaForCausalLM
+    elif args.model_class == 'valley-product':
+        Model = ValleyProductLlamaForCausalLM
+
     model_name = os.path.expanduser(args.model_name)
 
     # load model
     if 'lora' in model_name:
         config = PeftConfig.from_pretrained(model_name)
         print('load old model weight and lora weight')
-        model_old = ValleyLlamaForCausalLM.from_pretrained(model_name)
+        model_old = Model.from_pretrained(model_name, torch_dtype=torch.float16)
         print('load no lora model')
         if os.path.exists(os.path.join(model_name,'non_lora_trainables.bin')):
             non_lora_state_dict = torch.load(os.path.join(model_name,'non_lora_trainables.bin'))
@@ -70,15 +76,21 @@ def inference(rank, world_size, args):
         print("load end")
     else:
         print('load model')
-        model = ValleyLlamaForCausalLM.from_pretrained(
+        model = Model.from_pretrained(
             model_name, torch_dtype=torch.float16)
         tokenizer = LlamaTokenizer.from_pretrained(args.model_name, use_fast = False)
         tokenizer.padding_side = 'left'
         print('load end')
     
+    if args.language == 'chinese':
+        from transformers import ChineseCLIPImageProcessor as CLIPImageProcessor
+    else:
+        from transformers import  CLIPImageProcessor
+    
     image_processor = CLIPImageProcessor.from_pretrained(model.config.mm_vision_tower)
     model.eval()
     model = model.to(device)
+
     args.image_processor = image_processor
     args.is_multimodal = True
     args.mm_use_im_start_end = True
@@ -150,10 +162,14 @@ def inference(rank, world_size, args):
                 response = [format(yes_logits, '.8f') for yes_logits, no_logits in standardization_logits]
 
             for i in range(len(response)):
-                rf.write('\t'.join(['None', str(gt_label[i]), response[i].replace('\n','')]) + '\n')
+                # rf.write('\t'.join(['None', str(gt_label[i]), response[i].replace('\n','')]) + '\n')
+                rf.write(response[i].replace('\n','') + '\n')
+                rf.flush()
+
         except Exception as e:
             traceback.print_exc()
     rf.close()
+
 
 def gather_result(args,world_size):
     num_worker = world_size
@@ -164,16 +180,21 @@ def gather_result(args,world_size):
             f.writelines(tmp_result)
             os.remove(args.out_path+".worker_"+str(i))
 
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model-name", type=str, default = "/mnt/bn/luoruipu-disk/checkpoints/stable-valley-13b-v1")
-    parser.add_argument("--video_data_path", type=str, required = False, default = '/mnt/bn/luoruipu-disk/code_base/valley/valley/inference/sample_input/sample_input_video.json' )
-    parser.add_argument("--data_path", type=str, required = False, default = '' )
-    parser.add_argument("--video_folder", type=str, required = False, default = '')
-    parser.add_argument("--image_folder", type=str, required = False, default = '')
-    parser.add_argument("--out_path", type=str, required = False, default = 'inference_output/test2.txt' )
+    parser.add_argument("--model-class", type=str, default="valley-video")
+    parser.add_argument("--language", type=str, default="chinese")
+    parser.add_argument("--model-name", type=str, default = '/mnt/bn/yangmin-priv-fashionmm/pretrained/chinese_valley_belle7b_lora_debug/')
+    parser.add_argument("--video_data_path", type=str, required = False, default = None)
+    parser.add_argument("--data_path", type=str, required = False, default = '/mnt/bn/yangmin-priv-fashionmm/database/llava_bench_chat.json' )
+    parser.add_argument("--video_folder", type=str, required = False, default = None)
+    parser.add_argument("--image_folder", type=str, required = False, default = '/mnt/bn/yangmin-priv-fashionmm/projects/zhaoziwang/data/chinese_valley_test_image/image/')
+    parser.add_argument("--out_path", type=str, required = False, default = 'valley/inference/sample_output/test_output.txt' )
     parser.add_argument("--version", type=str, default="v0")
-    parser.add_argument("--prompt_version", type=str, default="valley_v0")
+    parser.add_argument("--prompt_version", type=str, default="belle")
+    parser.add_argument("--max_img_num", type=int, default=8)
     parser.add_argument("--image_aspect_ratio", type=str, default=None)
     parser.add_argument("--batch_size", type=int, required=False, default=1)
     parser.add_argument("--ouput_logits", action="store_true", default=False)

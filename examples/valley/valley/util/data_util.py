@@ -3,7 +3,6 @@ from transformers import StoppingCriteria
 from typing import Dict, Sequence
 from valley import conversation as conversation_lib
 import transformers
-from transformers import CLIPImageProcessor
 from valley.util.config import *
 import copy
 from torchvision import transforms
@@ -628,7 +627,7 @@ def preprocess(
 
 def load_video(
         path,
-        image_processer = None,
+        image_processer,
         frame_mode='fixed',
         fixed_frame_number=8,
         fps_number=0.5,
@@ -678,18 +677,6 @@ def load_video(
             resize = transforms.Resize([min_length, min_length])
             video_frames = [resize(frame) for frame in video_frames]
             # test_frame = video_frames[0]
-        if image_processer is None:
-            processor_config = {"crop_size": 224,
-                                "do_center_crop": True,
-                                "do_normalize": True,
-                                "do_resize": True,
-                                "feature_extractor_type": "CLIPFeatureExtractor",
-                                "image_mean": [0.48145466, 0.4578275, 0.40821073],
-                                "image_std":  [0.26862954, 0.26130258,0.27577711],
-                                "resample": 3,
-                                "size": 224
-                                }
-            image_processer = CLIPImageProcessor(**processor_config)
         video = image_processer.preprocess(
             video_frames, return_tensors='pt')['pixel_values']
         video = video.permute(1, 0, 2, 3)
