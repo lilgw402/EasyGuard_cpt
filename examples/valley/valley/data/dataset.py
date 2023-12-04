@@ -158,6 +158,8 @@ class LazySupervisedDataset(Dataset):
                 image = video
             else:
                 sources = copy.deepcopy([e["conversations"] for e in sources])
+            if self.inference and len(sources[0])%2 == 0:
+                sources[0] = sources[0][:-1]
             data_dict = preprocess(
                 sources,
                 self.tokenizer,

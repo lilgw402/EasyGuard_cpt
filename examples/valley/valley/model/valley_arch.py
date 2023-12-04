@@ -312,10 +312,11 @@ class ValleyProductMetaModel:
             vision_tower.load_model()
 
         self.config.use_mm_proj = True
-        self.config.mm_projector_type = getattr(model_args, 'mm_projector_type', 'linear')
+        self.config.mm_projector_type = getattr(model_args, 'mm_projector_type', 'pool_adapter')
         self.config.mm_hidden_size = vision_tower.hidden_size
         self.config.mm_vision_select_layer = mm_vision_select_layer
         self.config.mm_vision_select_feature = mm_vision_select_feature
+        self.config.pool_out_size = getattr(model_args, 'pool_out_size', 8)
 
         if getattr(self, 'mm_projector', None) is None:
             self.mm_projector = build_vision_projector(self.config)

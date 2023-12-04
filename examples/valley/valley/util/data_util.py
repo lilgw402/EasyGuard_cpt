@@ -168,7 +168,7 @@ def _mask_targets(target, tokenized_lens, speakers, only_mask_system = False):
             cur_idx += tokenized_len
 
 
-def _add_speaker_and_signal(header, source, get_conversation=True):
+def _add_speaker_and_signal(header, source, get_conversation=True, inference = False):
     """Add speaker and start/end signal on each round."""
     BEGIN_SIGNAL = "### "
     END_SIGNAL = "\n"
@@ -185,7 +185,10 @@ def _add_speaker_and_signal(header, source, get_conversation=True):
                              sentence["value"] + END_SIGNAL)
         if get_conversation:
             conversation += sentence["value"]
-    conversation += BEGIN_SIGNAL
+    if inference:
+        conversation += BEGIN_SIGNAL.strip()
+    else:
+        conversation += BEGIN_SIGNAL
     return conversation
 
 
@@ -601,7 +604,7 @@ def preprocess(
     conversations = []
     for source in sources:
         header = f"{conversation_lib.default_conversation.system}\n\n"
-        conversation = _add_speaker_and_signal(header, source)
+        conversation = _add_speaker_and_signal(header, source, inference = inference)
         conversations.append(conversation)
     # tokenize conversations
     def get_tokenize_len(prompts):
