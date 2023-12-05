@@ -504,6 +504,6 @@ def train(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--conf", type=str,
-                        default="./example/valley/configs/experiment_cn/valley_cn_7b_product_blas_v1.yaml")
+                        default="./valley/configs/experiment_cn/valley_cn_7b_product_continue_pretrain_sk_down.yaml")
     args = parser.parse_args()
     train(args)

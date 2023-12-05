@@ -224,7 +224,7 @@ def preprocess_multimodal(
                 if data_args.mm_use_im_start_end:
                     replace_token = DEFAULT_IM_START_TOKEN + replace_token + DEFAULT_IM_END_TOKEN + DEFAULT_VI_START_TOKEN + DEFAULT_VI_END_TOKEN
                 sentence["value"] = sentence["value"].replace(DEFAULT_IMAGE_TOKEN, replace_token)
-            print('sentence value:', sentence["value"])
+            # print('sentence value:', sentence["value"])
     return sources
 
 
@@ -607,7 +607,7 @@ def preprocess(
         header = f"{conversation_lib.default_conversation.system}\n\n"
         conversation = _add_speaker_and_signal(header, source, inference = inference)
         conversations.append(conversation)
-    print('conversation: ', conversations)
+    # print('conversation: ', conversations)
     # tokenize conversations
     def get_tokenize_len(prompts):
         return [len(tokenizer_image_token(prompt, tokenizer)) for prompt in prompts]
