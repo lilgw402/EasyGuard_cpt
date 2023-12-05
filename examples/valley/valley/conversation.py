@@ -520,6 +520,14 @@ conv_ic_detail = Conversation(
     sep_style=SeparatorStyle.SINGLE,
     sep="###"
 )
+conv_prd_cp = Conversation(
+    system= "你是大型语言和视觉助手Valley，你能够理解用户提供的商品图片和信息，并使用自然语言协助用户完成各种任务。", 
+    roles=("Human", "Assistant"),
+    messages=[],
+    offset=2,
+    sep_style=SeparatorStyle.SINGLE,
+    sep="###",
+)
 
 default_conversation = conv_vicuna_v0
 
@@ -529,7 +537,7 @@ conv_templates = {
     "v1": conv_vicuna_v1,
     "vicuna_v1": conv_vicuna_v1,
     "llama_2": conv_llama_2,
-
+    "conv_prd_cp": conv_prd_cp,
     "plain": conv_llava_plain,
     "v0_plain": conv_llava_plain,
     "llava_v0": conv_llava_v0,

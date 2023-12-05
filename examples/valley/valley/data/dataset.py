@@ -15,8 +15,10 @@ import copy
 import random
 import numpy as np
 from torchvision import transforms
+import io
 import decord
 import traceback
+import urllib
 
 def expand2square(pil_img, background_color):
     width, height = pil_img.size
@@ -30,6 +32,44 @@ def expand2square(pil_img, background_color):
         result = Image.new(pil_img.mode, (height, height), background_color)
         result.paste(pil_img, ((height - width) // 2, 0))
         return result
+
+def get_url(url):
+    if 'http' in url:
+        url = url
+    elif 'v1_' in url:
+        url = 'https://tosv.byted.org/obj/ecom-shop-material/' + url
+    elif url.find('-image.image') != -1:
+        url = 'http://p3-im.byteimg.com/tos-cn-i-scl3phc04j/' + url
+    elif url.find('.image') != -1:
+        url = 'http://tosv.byted.org/obj/temai/' + url
+    elif url.find('.jpeg') != -1:
+        url = 'http://p3-im.byteimg.com/tos-cn-i-scl3phc04j/' + url.replace('jpeg', 'image')
+    elif url.find('.png') != -1:
+        url = 'http://p3-im.byteimg.com/tos-cn-i-scl3phc04j/' + url.replace('png', 'image')
+    else:
+        url_list = url.split('/')[-1].split('_')
+        if len(url_list)>4:
+            url = 'http://tosv.byted.org/obj/ecom-shop-material/' + url
+        else:
+            url = 'http://tosv.byted.org/obj/temai/' + url
+    if url.find('~720x0.image')!=-1:
+        url = url.replace('~720x0.image','')
+    url = url.replace('p9-aio.ecombdimg.com','tosv.byted.org').replace('p6-aio.ecombdimg.com','tosv.byted.org').replace('p3-aio.ecombdimg.com','tosv.byted.org')
+    return url
+
+def download_url_with_exception(_url, timeout=5):
+    try:
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/67.0.3396.99 Safari/537.36'
+        }
+        # print(_url)
+        _url = get_url(_url)
+        req = urllib.request.Request(url=_url, headers=headers)
+        response = urllib.request.urlopen(req, timeout=timeout)
+        return response.read()
+    except Exception as e:
+        print('download error', e)
+        return b''
 
 class LazySupervisedDataset(Dataset):
     """Dataset for supervised fine-tuning."""
@@ -105,9 +145,11 @@ class LazySupervisedDataset(Dataset):
             elif ('image' in sources[0]) and isinstance(self.list_data_dict[i]['image'], list):     ### for multi image 
                 image_list = []
                 for image_file in self.list_data_dict[i]['image'][:self.data_args.max_img_num]:
-                    image_folder = self.data_args.image_folder if self.data_args.image_folder else ''
+                    # image_folder = self.data_args.image_folder if self.data_args.image_folder else ''
+                    image_str = download_url_with_exception(image_file)
+                    image = Image.open(io.BytesIO(image_str)).convert('RGB')
                     processor = self.data_args.image_processor
-                    image = Image.open(os.path.join(image_folder, image_file)).convert('RGB')
+                    # image = Image.open(os.path.join(image_folder, image_file)).convert('RGB')
                     if self.data_args.image_aspect_ratio == 'pad':
                         image = expand2square(image, tuple(int(x*255) for x in processor.image_mean))
                         image = processor.preprocess(image, return_tensors='pt')['pixel_values'][0]
