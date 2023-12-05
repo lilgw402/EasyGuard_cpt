@@ -1,7 +1,7 @@
 deepspeed: valley/configs/deepspeed/config_zero2.json
 model_class: valley-product
 model_name_or_path: /mnt/bn/yangmin-priv-fashionmm/pretrained/chinese_valley_product_belle7b_pool_adapter
-data_path: /mnt/bn/yangmin-priv-fashionmm/Data/zhongheng/continue_pretrain/data/prompt_train/zhunru.json
+data_path: /mnt/bn/yangmin-priv-fashionmm/Data/zhongheng/continue_pretrain/data/prompt_train/zhunru_image.json
 image_folder: /mnt/bn/yangmin-priv-fashionmm/Data/zhongheng/mllm_image/continut_pretrain
 project_name: product_continue_pretrian
 run_name: valley-pool_adapter-continue_pretrain-down-lora

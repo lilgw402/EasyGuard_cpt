@@ -125,6 +125,7 @@ class LazySupervisedDataset(Dataset):
                 sources = [sources]
             assert len(sources) == 1, "Don't know why it is wrapped to a list"  # FIXME
             if ('image' in sources[0]) and isinstance(self.list_data_dict[i]['image'], str):       ### for single image
+                print(1)
                 image_file = self.list_data_dict[i]['image']
                 image_folder = self.data_args.image_folder
                 if 'train2014' in image_folder:
@@ -143,6 +144,7 @@ class LazySupervisedDataset(Dataset):
                     self.data_args)
                 image = image.unsqueeze(0)
             elif ('image' in sources[0]) and isinstance(self.list_data_dict[i]['image'], list):     ### for multi image 
+                print(2)
                 image_list = []
                 for image_file in self.list_data_dict[i]['image'][:self.data_args.max_img_num]:
                     # image_folder = self.data_args.image_folder if self.data_args.image_folder else ''
@@ -162,6 +164,7 @@ class LazySupervisedDataset(Dataset):
                     self.data_args)
                 image = image_list
             elif 'video' in sources[0]:                                                     ### for video file or folder
+                print(3)
                 video_file = self.list_data_dict[i]['video']
                 processor = self.data_args.image_processor
                 if 'source' not in self.list_data_dict[i]:
@@ -199,6 +202,7 @@ class LazySupervisedDataset(Dataset):
                         self.data_args)
                 image = video
             else:
+                print(4)
                 sources = copy.deepcopy([e["conversations"] for e in sources])
             if self.inference and len(sources[0])%2 == 0:
                 sources[0] = sources[0][:-1]
