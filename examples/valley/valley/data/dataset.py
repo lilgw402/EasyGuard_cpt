@@ -244,6 +244,7 @@ class DataCollatorForSupervisedDataset(object):
         instances = instances_no_error
         input_ids, labels = tuple([instance[key] for instance in instances]
                                   for key in ("input_ids", "labels"))
+        print(input_ids.shape)
         input_ids = torch.nn.utils.rnn.pad_sequence(
             input_ids,
             batch_first=True,
