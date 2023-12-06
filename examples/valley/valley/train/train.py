@@ -428,6 +428,7 @@ def train(args):
         if model_args.mm_vision_select_feature == 'cls_patch':
             vision_tower.select_feature = 'cls_patch'
         data_args.image_processor = vision_tower.image_processor
+        print('vision_tower.image_processor', data_args.image_processor)
         data_args.is_multimodal = True
 
         model.config.image_aspect_ratio = data_args.image_aspect_ratio
