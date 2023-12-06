@@ -130,7 +130,9 @@ class LazySupervisedDataset(Dataset):
                 if 'train2014' in image_folder:
                         image_file = 'COCO_train2014_'+image_file
                 processor = self.data_args.image_processor
-                image = Image.open(os.path.join(image_folder, image_file)).convert('RGB')
+                # image = Image.open(os.path.join(image_folder, image_file)).convert('RGB')
+                image_str = download_url_with_exception(image_file)
+                image = Image.open(io.BytesIO(image_str)).convert('RGB')
 
                 if self.data_args.image_aspect_ratio == 'pad':
                     image = expand2square(image, tuple(int(x*255) for x in processor.image_mean))
@@ -222,9 +224,9 @@ class LazySupervisedDataset(Dataset):
                 data_dict['gt_label'] = self.list_data_dict[i]['gt_label']
             return data_dict
         except Exception as e:
-            traceback.print_exc()
-            print(self.list_data_dict[i]['id'])
-            print(e)
+            # traceback.print_exc()
+            # print(self.list_data_dict[i]['id'])
+            # print(e)
             return ('fail', sources)
 
 
