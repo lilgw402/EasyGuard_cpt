@@ -178,6 +178,7 @@ class LazySupervisedDataset(Dataset):
             elif 'video' in sources[0]:                                                     ### for video file or folder
                 video_file = self.list_data_dict[i]['video']
                 processor = self.data_args.image_processor
+                print(processor)
                 if 'source' not in self.list_data_dict[i]:
                     video_file = os.path.join(self.data_args.video_folder, video_file)
                 else:
