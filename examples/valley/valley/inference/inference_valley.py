@@ -81,7 +81,9 @@ def inference(rank, world_size, args):
         tokenizer = LlamaTokenizer.from_pretrained(args.model_name, use_fast = False)
         tokenizer.padding_side = 'left'
         print('load end')
-    
+    # save model
+    if rank == 0:
+        model.save_pretrained('/mnt/bn/yangmin-priv-fashionmm/Data/sk/checkpoints/valley-chinese-7b-all-product-continue-pretrain-down-pool-5epoch-v2')
     if args.language == 'chinese':
         from transformers import ChineseCLIPImageProcessor as CLIPImageProcessor
     else:
@@ -130,9 +132,10 @@ def inference(rank, world_size, args):
     for test_batch in prog_bar:
         try:
             test_batch = test_batch.tokenizer[0]
-            gt_label = [test_batch.pop('gt_label')]
+            # gt_label = [test_batch.pop('gt_label')]
             for key in test_batch:
-                test_batch[key] = test_batch[key].to(device)
+                if key != 'product_id':
+                    test_batch[key] = test_batch[key].to(device)
             stop_str = conversation_lib.default_conversation.sep if conversation_lib.default_conversation.sep_style != conversation_lib.SeparatorStyle.TWO else conversation_lib.default_conversation.sep2
             keywords = [stop_str]
             stopping_criteria = KeywordsStoppingCriteria(keywords, tokenizer, test_batch['input_ids'].unsqueeze(0))
@@ -163,7 +166,7 @@ def inference(rank, world_size, args):
 
             for i in range(len(response)):
                 # rf.write('\t'.join(['None', str(gt_label[i]), response[i].replace('\n','')]) + '\n')
-                rf.write(response[i].replace('\n','') + '\n')
+                rf.write(response[i].replace('\n','') + '\t' + test_batch['product_id'] + + '\n')
                 rf.flush()
 
         except Exception as e:
@@ -184,16 +187,16 @@ def gather_result(args,world_size):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model-class", type=str, default="valley-video")
+    parser.add_argument("--model-class", type=str, default="valley-product")
     parser.add_argument("--language", type=str, default="chinese")
-    parser.add_argument("--model-name", type=str, default = '/mnt/bn/yangmin-priv-fashionmm/pretrained/chinese_valley_belle7b_lora_debug/')
+    parser.add_argument("--model-name", type=str, default = '/mnt/bn/yangmin-priv-fashionmm/Data/sk/checkpoints/valley-chinese-7b-lora-product-continue-pretrain-down-pool-5epoch-v2/checkpoint-12000')
     parser.add_argument("--video_data_path", type=str, required = False, default = None)
-    parser.add_argument("--data_path", type=str, required = False, default = '/mnt/bn/yangmin-priv-fashionmm/database/llava_bench_chat.json' )
+    parser.add_argument("--data_path", type=str, required = False, default = '/mnt/bn/yangmin-priv-fashionmm/Data/sk/continue_data/shouyi/zhunru_test.json' )
     parser.add_argument("--video_folder", type=str, required = False, default = None)
     parser.add_argument("--image_folder", type=str, required = False, default = '/mnt/bn/yangmin-priv-fashionmm/projects/zhaoziwang/data/chinese_valley_test_image/image/')
-    parser.add_argument("--out_path", type=str, required = False, default = 'valley/inference/sample_output/test_output.txt' )
+    parser.add_argument("--out_path", type=str, required = False, default = '/mnt/bn/yangmin-priv-fashionmm/Data/sk/vulgar/data/valley_v1data_without_ocr_eval_res_step2000_debug_easyguard_v2.txt' )
     parser.add_argument("--version", type=str, default="v0")
-    parser.add_argument("--prompt_version", type=str, default="belle")
+    parser.add_argument("--prompt_version", type=str, default="conv_prd_cp")
     parser.add_argument("--max_img_num", type=int, default=8)
     parser.add_argument("--image_aspect_ratio", type=str, default=None)
     parser.add_argument("--batch_size", type=int, required=False, default=1)
@@ -202,7 +205,7 @@ if __name__ == "__main__":
     parser.add_argument("--do-sample", action="store_true", default=False)
     parser.add_argument("--DDP", action="store_true")
     parser.add_argument("--DDP_port", default = '12345')
-    parser.add_argument("--world_size", type=int, default = 8)
+    parser.add_argument("--world_size", type=int, default = 1)
     args = parser.parse_args()
 
     if args.DDP:

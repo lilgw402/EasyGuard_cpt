@@ -130,7 +130,7 @@ class LazySupervisedDataset(Dataset):
                 if 'train2014' in image_folder:
                         image_file = 'COCO_train2014_'+image_file
                 processor = self.data_args.image_processor
-                # image = Image.open(os.path.join(image_folder, image_file)).convert('RGB')
+                # image = Image.open(os.sources = copy.deepcopyath.join(image_folder, image_file)).convert('RGB')
                 image_str = download_url_with_exception(image_file)
                 image = Image.open(io.BytesIO(image_str)).convert('RGB')
 
@@ -235,6 +235,9 @@ class LazySupervisedDataset(Dataset):
                 data_dict['image'] = torch.zeros(1, 3, crop_size['height'], crop_size['width'])
             if 'gt_label' in self.list_data_dict[i]:
                 data_dict['gt_label'] = self.list_data_dict[i]['gt_label']
+            if 'product_id' in self.list_data_dict[i]:
+                data_dict['product_id'] = self.list_data_dict[i]['product_id']
+            data_dict['source'] = sources
             return data_dict
         except Exception as e:
             # traceback.print_exc()

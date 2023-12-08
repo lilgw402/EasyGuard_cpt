@@ -15,7 +15,7 @@ import traceback
 from torch.utils.data.distributed import DistributedSampler
 from valley.util.config import DEFAULT_GANDALF_TOKEN
 from valley.util.data_util import KeywordsStoppingCriteria
-from peft import PeftConfig, PeftModel
+from peft import PeftConfig
 from transformers import set_seed
 from valley.data.dataset import LazySupervisedDataset, DataCollatorForSupervisedDataset
 from valley.util.data_util import smart_tokenizer_and_embedding_resize
@@ -26,10 +26,7 @@ def setup(args,rank, world_size):
     os.environ["MASTER_PORT"] = args.DDP_port
     dist.init_process_group("nccl", rank=rank, world_size=world_size, )
 
-def standardization(data):
-        mu = torch.mean(data)
-        sigma = torch.std(data)
-        return (data - mu) / sigma
+
 
 def inference(rank, world_size, args):
     set_seed(42)
@@ -53,82 +50,17 @@ def inference(rank, world_size, args):
 
     model_name = os.path.expanduser(args.model_name)
 
-    # load model
-    if 'lora' in model_name:
-        lora_config = PeftConfig.from_pretrained(model_name)
-        print('load base model')
-        model_old = Model.from_pretrained(lora_config.base_model_name_or_path, torch_dtype=torch.float16)
-        print('load no lora model')
-        if os.path.exists(os.path.join(model_name,'non_lora_trainables.bin')):
-            non_lora_state_dict = torch.load(os.path.join(model_name,'non_lora_trainables.bin'))
-            new_state_dict = dict()
-            for key in non_lora_state_dict.keys():
-                key_new = '.'.join(key.split('.')[2:]) # base_model.model.model.xxxx
-                new_state_dict[key_new] = non_lora_state_dict[key]
-            model_old_state = model_old.state_dict()
-            model_old_state.update(new_state_dict)
-            model_old.load_state_dict(model_old_state)
-        model = model_old
-        print(f"Merging lora weights")
-        model = PeftModel.from_pretrained(model, model_name)
-        model = model.merge_and_unload()
-        tokenizer = LlamaTokenizer.from_pretrained(os.path.dirname(model_name), use_fast = False)
-        if hasattr(model.model, 'gandalf_projector'):
-            model_old.config.gandalf_token_index = tokenizer.convert_tokens_to_ids(DEFAULT_GANDALF_TOKEN)
-        tokenizer.padding_side = 'left'
-        print("load end")
-    else:
-        print('load model')
-        model = Model.from_pretrained(
-            model_name, torch_dtype=torch.float16)
-        tokenizer = LlamaTokenizer.from_pretrained(args.model_name, use_fast = False)
-        tokenizer.padding_side = 'left'
-        print('load end')
-    
-    """ check vision tower, is ok"""
-    # print("before:")
-    # # print(model.model.vision_tower.vision_tower.named_parameters())
-    # print(model.model.vision_tower.vision_tower.vision_model.encoder.layers[0].self_attn.k_proj.weight)
-    
-    # model.model.vision_tower.vision_tower = CLIPVisionModel.from_pretrained(model.config.mm_vision_tower, torch_dtype=torch.float16)
-    # model.model.vision_tower.requires_grad_(False)
 
-    # print("after:")
-    # # print(model.model.vision_tower.vision_tower.named_parameters())
-    # print(model.model.vision_tower.vision_tower.vision_model.encoder.layers[0].self_attn.k_proj.weight)
+    tokenizer = LlamaTokenizer.from_pretrained(os.path.dirname(model_name), use_fast = False)
 
-    if args.language == 'chinese':
-        from transformers import ChineseCLIPImageProcessor as CLIPImageProcessor
-    else:
-        from transformers import  CLIPImageProcessor
-    
-    image_processor = CLIPImageProcessor.from_pretrained(model.config.mm_vision_tower)
-    model.eval()
-    model = model.to(device)
+
+    tokenizer.padding_side = 'left'
+
 
     args.image_processor = image_processor
     args.is_multimodal = True
     args.mm_use_im_start_end = True
     args.only_mask_system = False
-    
-    if args.version == "v0":
-        if tokenizer.pad_token is None:
-            smart_tokenizer_and_embedding_resize(
-                special_tokens_dict=dict(pad_token="[PAD]"),
-                tokenizer=tokenizer,
-                model=model,
-            )
-    elif args.version == "v0.5":
-        tokenizer.pad_token = tokenizer.unk_token
-    else:
-        tokenizer.pad_token = tokenizer.unk_token
-        if args.version in conversation_lib.conv_templates:
-            conversation_lib.default_conversation = conversation_lib.conv_templates[args.version]
-        else:
-            conversation_lib.default_conversation = conversation_lib.conv_templates["vicuna_v1"]
-
-    if args.prompt_version is not None:
-        conversation_lib.default_conversation = conversation_lib.conv_templates[args.prompt_version]
     dataset = LazySupervisedDataset(args.data_path, tokenizer=tokenizer, data_args = args, inference= True)
     
     if args.DDP:
@@ -143,72 +75,25 @@ def inference(rank, world_size, args):
     
 
     for test_batch in prog_bar:
-        try:
-            test_batch = test_batch.tokenizer[0]
-            gt_label = [test_batch.pop('gt_label')]
-            for key in test_batch:
-                test_batch[key] = test_batch[key].to(device)
-            stop_str = conversation_lib.default_conversation.sep if conversation_lib.default_conversation.sep_style != conversation_lib.SeparatorStyle.TWO else conversation_lib.default_conversation.sep2
-            keywords = [stop_str]
-            stopping_criteria = KeywordsStoppingCriteria(keywords, tokenizer, test_batch['input_ids'].unsqueeze(0))
-            with torch.inference_mode():
-                output_ids = model.generate(
-                    input_ids = test_batch['input_ids'].unsqueeze(0),
-                    images=test_batch['image'].half().unsqueeze(0),
-                    do_sample=args.do_sample,
-                    temperature=args.temperature,
-                    stopping_criteria=[stopping_criteria],
-                    max_new_tokens = 1024,
-                    return_dict_in_generate= True if args.ouput_logits else False, output_scores= True if args.ouput_logits else False
-                )
-            if not args.ouput_logits: 
-                input_token_len = test_batch['input_ids'].unsqueeze(0).shape[1]
-                n_diff_input_output = (test_batch['input_ids'].unsqueeze(0) != output_ids[:, :input_token_len]).sum().item()
-                if n_diff_input_output > 0:
-                    print(f'[Warning] {n_diff_input_output} output_ids are not the same as the input_ids')
-                outputs = tokenizer.batch_decode( output_ids[:, input_token_len:], skip_special_tokens=True)
-                response = outputs
-                print(response)
-            if args.ouput_logits:
-                outputs = tokenizer.batch_decode(output_ids.sequences[:, -3:], skip_special_tokens=True)
-                scores = standardization(output_ids.scores[ 3])
-                standardization_score = scores[:,[3869,1939]]
-                standardization_logits = torch.softmax(standardization_score, dim=1).cpu().numpy().tolist()
-                response = [format(yes_logits, '.8f') for yes_logits, no_logits in standardization_logits]
-
-            for i in range(len(response)):
-                # rf.write('\t'.join(['None', str(gt_label[i]), response[i].replace('\n','')]) + '\n')
-                rf.write(response[i].replace('\n','') + '\n')
-                rf.flush()
-
-        except Exception as e:
-            traceback.print_exc()
-    rf.close()
-
-
-def gather_result(args,world_size):
-    num_worker = world_size
-    with open(args.out_path, 'w') as f:
-        for i in range(num_worker):
-            with open(args.out_path+".worker_"+str(i), 'r') as tf:
-                tmp_result = tf.readlines()
-            f.writelines(tmp_result)
-            os.remove(args.out_path+".worker_"+str(i))
-
+        test_batch = test_batch.tokenizer[0]
+        # gt_label = [test_batch.pop('gt_label')]
+        for key in test_batch:
+            print(key, test_batch[key])
+  
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model-class", type=str, default="valley-video")
+    parser.add_argument("--model-class", type=str, default="valley-product")
     parser.add_argument("--language", type=str, default="chinese")
-    parser.add_argument("--model-name", type=str, default = '/mnt/bn/yangmin-priv-fashionmm/pretrained/chinese_valley_belle7b_lora_debug/')
+    parser.add_argument("--model-name", type=str, default = '/mnt/bn/yangmin-priv-fashionmm/Data/sk/checkpoints/valley-chinese-7b-lora-product-continue-pretrain-down-pool-5epoch-v2/checkpoint-12000')
     parser.add_argument("--video_data_path", type=str, required = False, default = None)
-    parser.add_argument("--data_path", type=str, required = False, default = '/mnt/bn/yangmin-priv-fashionmm/database/llava_bench_chat.json' )
+    parser.add_argument("--data_path", type=str, required = False, default = '/mnt/bn/yangmin-priv-fashionmm/Data/sk/continue_data/shouyi/zhunru_test.json' )
     parser.add_argument("--video_folder", type=str, required = False, default = None)
     parser.add_argument("--image_folder", type=str, required = False, default = '/mnt/bn/yangmin-priv-fashionmm/projects/zhaoziwang/data/chinese_valley_test_image/image/')
-    parser.add_argument("--out_path", type=str, required = False, default = 'valley/inference/sample_output/test_output_debug.txt' )
+    parser.add_argument("--out_path", type=str, required = False, default = '/mnt/bn/yangmin-priv-fashionmm/Data/sk/vulgar/data/valley_v1data_without_ocr_eval_res_step2000_debug_easyguard_v2.txt' )
     parser.add_argument("--version", type=str, default="v0")
-    parser.add_argument("--prompt_version", type=str, default="belle")
+    parser.add_argument("--prompt_version", type=str, default="conv_prd_cp")
     parser.add_argument("--max_img_num", type=int, default=8)
     parser.add_argument("--image_aspect_ratio", type=str, default=None)
     parser.add_argument("--batch_size", type=int, required=False, default=1)
@@ -217,11 +102,7 @@ if __name__ == "__main__":
     parser.add_argument("--do-sample", action="store_true", default=False)
     parser.add_argument("--DDP", action="store_true")
     parser.add_argument("--DDP_port", default = '12345')
-    parser.add_argument("--world_size", type=int, default = 8)
+    parser.add_argument("--world_size", type=int, default = 1)
     args = parser.parse_args()
 
-    if args.DDP:
-        mp.spawn( inference, args=(args.world_size, args), nprocs=args.world_size)
-        gather_result(args, args.world_size)
-    else: 
-        inference(0, args.world_size, args)
+    mp.spawn( inference, args=(args.world_size, args), nprocs=args.world_size)

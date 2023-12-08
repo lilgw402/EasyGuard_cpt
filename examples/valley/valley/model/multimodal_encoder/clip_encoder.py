@@ -29,8 +29,8 @@ class CLIPVisionTower(nn.Module):
         else:
             from transformers import CLIPVisionModel, CLIPImageProcessor
         self.image_processor = CLIPImageProcessor.from_pretrained(self.vision_tower_name)
-        self.image_processor.crop_size['height'] = 336
-        self.image_processor.crop_size['width'] = 336
+        # self.image_processor.crop_size['height'] = 336
+        # self.image_processor.crop_size['width'] = 336
         print('load_model\n', self.image_processor)
         self.vision_tower = CLIPVisionModel.from_pretrained(self.vision_tower_name)
         self.vision_tower.requires_grad_(False)
