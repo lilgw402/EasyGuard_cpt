@@ -237,7 +237,7 @@ class LazySupervisedDataset(Dataset):
                 data_dict['gt_label'] = self.list_data_dict[i]['gt_label']
             if 'product_id' in self.list_data_dict[i]:
                 data_dict['product_id'] = self.list_data_dict[i]['product_id']
-            data_dict['source'] = sources
+            # data_dict['source'] = sources
             return data_dict
         except Exception as e:
             # traceback.print_exc()

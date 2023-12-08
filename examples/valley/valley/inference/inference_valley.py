@@ -82,8 +82,9 @@ def inference(rank, world_size, args):
         tokenizer.padding_side = 'left'
         print('load end')
     # save model
-    if rank == 0:
-        model.save_pretrained('/mnt/bn/yangmin-priv-fashionmm/Data/sk/checkpoints/valley-chinese-7b-all-product-continue-pretrain-down-pool-5epoch-v2')
+    # if rank == 0:
+    #     model_state = model.state_dict()
+    #     torch.save(model_state, '/mnt/bn/yangmin-priv-fashionmm/Data/sk/checkpoints/valley-chinese-7b-all-product-continue-pretrain-down-pool-5epoch-v2/model.bin')
     if args.language == 'chinese':
         from transformers import ChineseCLIPImageProcessor as CLIPImageProcessor
     else:
@@ -135,6 +136,7 @@ def inference(rank, world_size, args):
             # gt_label = [test_batch.pop('gt_label')]
             for key in test_batch:
                 if key != 'product_id':
+                    # print(key)
                     test_batch[key] = test_batch[key].to(device)
             stop_str = conversation_lib.default_conversation.sep if conversation_lib.default_conversation.sep_style != conversation_lib.SeparatorStyle.TWO else conversation_lib.default_conversation.sep2
             keywords = [stop_str]
