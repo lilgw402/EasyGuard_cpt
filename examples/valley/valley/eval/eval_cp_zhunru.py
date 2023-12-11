@@ -1,6 +1,6 @@
 import os
 import csv
-import json
+import json, re
 from sklearn.metrics import precision_score, recall_score, classification_report, accuracy_score, f1_score
 
 
@@ -32,14 +32,8 @@ def get_zhunru_result(path, t='高危禁售'):
         for i, line in enumerate(f):
             tokens = line.strip().split('\t')
             # print(tokens)
-            
-            for i, token in enumerate(tokens):
-                if token in datas:
-                    ques = '\t'.join(tokens[:i])
-                    pid = tokens[i]
-                    model_ans = '\t'.join(tokens[i+1:])
-
-            # value = '根据商品的信息和图片，'
+            model_ans = re.sub('Assistant: ', '', tokens[0])
+            pid = tokens[1]
 
             if pid in used_pids:
                 continue
@@ -50,9 +44,8 @@ def get_zhunru_result(path, t='高危禁售'):
                 f = jsd.get('first_type', '')
 
                 if not f or t in f:
-                    # print(tokens)
                     pred = 0
-                    if model_ans.startswith('Assistant: 不'):
+                    if model_ans.startswith('不'):
                         pred = 1
                     
                     label = 0
@@ -72,4 +65,4 @@ def get_zhunru_res(path):
     for t in t_list:
         get_zhunru_result(path, t)
 
-get_zhunru_res('/mnt/bn/yangmin-priv-fashionmm/Data/sk/vulgar/data/valley_v1data_without_ocr_eval_res_step2000_debug_easyguard.txt')
+get_zhunru_res('/mnt/bn/yangmin-priv-fashionmm/Data/sk/continue_data/cp_mllm_output_basic/valley_v1data_without_ocr_eval_res_step12000_debug_easyguard_v2.txt')

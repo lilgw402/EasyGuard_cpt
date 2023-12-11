@@ -158,7 +158,7 @@ def inference(rank, world_size, args):
                     print(f'[Warning] {n_diff_input_output} output_ids are not the same as the input_ids')
                 outputs = tokenizer.batch_decode( output_ids[:, input_token_len:], skip_special_tokens=True)
                 response = outputs
-                print(response)
+                # print(response)
             if args.ouput_logits:
                 outputs = tokenizer.batch_decode(output_ids.sequences[:, -3:], skip_special_tokens=True)
                 scores = standardization(output_ids.scores[ 3])
@@ -168,7 +168,7 @@ def inference(rank, world_size, args):
 
             for i in range(len(response)):
                 # rf.write('\t'.join(['None', str(gt_label[i]), response[i].replace('\n','')]) + '\n')
-                rf.write(response[i].replace('\n','') + '\t' + test_batch['product_id'] + + '\n')
+                rf.write(response[i].replace('\n','') + '\t' + test_batch['product_id'] + '\n')
                 rf.flush()
 
         except Exception as e:
@@ -191,12 +191,12 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--model-class", type=str, default="valley-product")
     parser.add_argument("--language", type=str, default="chinese")
-    parser.add_argument("--model-name", type=str, default = '/mnt/bn/yangmin-priv-fashionmm/Data/sk/checkpoints/valley-chinese-7b-lora-product-continue-pretrain-down-pool-5epoch-v2/checkpoint-12000')
+    parser.add_argument("--model-name", type=str, default = '/mnt/bn/yangmin-priv-fashionmm/Data/sk/checkpoints/valley-chinese-7b-lora-product-continue-pretrain-down-pool-5epoch-crop-336')
     parser.add_argument("--video_data_path", type=str, required = False, default = None)
     parser.add_argument("--data_path", type=str, required = False, default = '/mnt/bn/yangmin-priv-fashionmm/Data/sk/continue_data/shouyi/zhunru_test.json' )
     parser.add_argument("--video_folder", type=str, required = False, default = None)
     parser.add_argument("--image_folder", type=str, required = False, default = '/mnt/bn/yangmin-priv-fashionmm/projects/zhaoziwang/data/chinese_valley_test_image/image/')
-    parser.add_argument("--out_path", type=str, required = False, default = '/mnt/bn/yangmin-priv-fashionmm/Data/sk/continue_data/cp_mllm_output_basic/valley_v1data_without_ocr_eval_res_step2000_debug_easyguard_v2.txt' )
+    parser.add_argument("--out_path", type=str, required = False, default = '/mnt/bn/yangmin-priv-fashionmm/Data/sk/continue_data/cp_mllm_output_basic/cp_7b_lora_pool_crop336_down.txt' )
     parser.add_argument("--version", type=str, default="v0")
     parser.add_argument("--prompt_version", type=str, default="conv_prd_cp")
     parser.add_argument("--max_img_num", type=int, default=8)
