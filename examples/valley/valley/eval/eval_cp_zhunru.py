@@ -65,4 +65,4 @@ def get_zhunru_res(path):
     for t in t_list:
         get_zhunru_result(path, t)
 
-get_zhunru_res('/mnt/bn/yangmin-priv-fashionmm/Data/sk/continue_data/cp_mllm_output_basic/valley_v1data_without_ocr_eval_res_step12000_debug_easyguard_v2.txt')
+get_zhunru_res('/mnt/bn/yangmin-priv-fashionmm/Data/sk/continue_data/cp_mllm_output_basic/cp_7b_lora_pool_crop336_down.txt')
