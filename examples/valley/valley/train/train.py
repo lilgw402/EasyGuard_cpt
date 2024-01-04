@@ -31,7 +31,7 @@ import argparse
 from torch import nn
 import traceback
 from valley.util.data_util import smart_tokenizer_and_embedding_resize
-from valley.data.dataset_cp import make_supervised_data_module
+from valley.data.dataset import make_supervised_data_module
 local_rank = None
 os.environ['NCCL_DEBUG']=''
 
