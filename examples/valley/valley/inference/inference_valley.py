@@ -17,7 +17,7 @@ from valley.util.config import DEFAULT_GANDALF_TOKEN
 from valley.util.data_util import KeywordsStoppingCriteria
 from peft import PeftConfig
 from transformers import set_seed
-from valley.data.dataset_cp import LazySupervisedDataset, DataCollatorForSupervisedDataset
+from valley.data.dataset import LazySupervisedDataset, DataCollatorForSupervisedDataset
 from valley.util.data_util import smart_tokenizer_and_embedding_resize
 from valley import conversation as conversation_lib
 os.environ['NCCL_DEBUG']=''
