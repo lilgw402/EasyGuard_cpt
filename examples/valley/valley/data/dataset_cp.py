@@ -62,8 +62,8 @@ def download_url_with_exception(_url, timeout=5):
         headers = {
             'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/67.0.3396.99 Safari/537.36'
         }
-        # print(_url)
         _url = get_url(_url)
+        # print('_url',_url )
         req = urllib.request.Request(url=_url, headers=headers)
         response = urllib.request.urlopen(req, timeout=timeout)
         return response.read()
@@ -80,7 +80,13 @@ class LazySupervisedDataset(Dataset):
                  inference):
         super(LazySupervisedDataset, self).__init__()
         
-        list_data_dict = json.load(open(data_path, "r")) if data_path else []
+        list_data_dict = []
+        if os.path.isfile(data_path) and data_path[-4:] != 'json':
+            list_data_dict = [json.loads(data) for data in open(data_path, 'r').readlines()]
+        else:
+            list_data_dict = json.load(open(data_path, "r"))
+        print(list_data_dict[:2])
+
         if data_args.video_data_path is None:
             list_video_data_dict = []
         elif os.path.isfile(data_args.video_data_path):
@@ -151,9 +157,9 @@ class LazySupervisedDataset(Dataset):
                 image_list = []
                 # print('image path: ')
                 for image_file in self.list_data_dict[i]['image'][:self.data_args.max_img_num]:
-                    # image_folder = self.data_args.image_folder if self.data_args.image_folder else ''
+                    image_folder = self.data_args.image_folder if self.data_args.image_folder else ''
                     try:
-                        save_name = image_file.split('/')[-1]
+                        save_name = image_file
                         image_path = os.path.join(self.image_path, save_name + '.png')
                         # print(image_path)
                         if os.path.exists(image_path):
@@ -184,7 +190,7 @@ class LazySupervisedDataset(Dataset):
             elif 'video' in sources[0]:                                                     ### for video file or folder
                 video_file = self.list_data_dict[i]['video']
                 processor = self.data_args.image_processor
-                print(processor)
+                # print(processor)
                 if 'source' not in self.list_data_dict[i]:
                     video_file = os.path.join(self.data_args.video_folder, video_file)
                 else:
@@ -331,7 +337,7 @@ if __name__ == '__main__':
     from valley.util.data_util import smart_tokenizer_and_embedding_resize
     
     parser = transformers.HfArgumentParser((ModelArguments, DataArguments, TrainingArguments))
-    model_args, data_args, training_args = parser.parse_yaml_file('./valley/configs/experiment_cn/valley_cn_7b_product_cp_hzh_v1_0.yaml')
+    model_args, data_args, training_args = parser.parse_yaml_file('./valley/configs/experiment_cn/valley_cn_7b_product_cp_hzh_v1_2.yaml')
 
     tokenizer = transformers.LlamaTokenizer.from_pretrained(
         model_args.model_name_or_path,

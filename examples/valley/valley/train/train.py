@@ -31,7 +31,7 @@ import argparse
 from torch import nn
 import traceback
 from valley.util.data_util import smart_tokenizer_and_embedding_resize
-from valley.data.dataset import make_supervised_data_module
+from valley.data.dataset_cp import make_supervised_data_module
 local_rank = None
 os.environ['NCCL_DEBUG']=''
 
@@ -507,6 +507,6 @@ def train(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--conf", type=str,
-                        default="./valley/configs/experiment_cn/valley_cn_7b_product_cp_hzh_v1_0.yaml")
+                        default="./valley/configs/experiment_cn/valley_cn_7b_product_cp_hzh_v1_2.yaml")
     args = parser.parse_args()
     train(args)

@@ -1,7 +1,7 @@
 deepspeed: valley/configs/deepspeed/config_zero2.json
 model_class: valley-product
 model_name_or_path: /mnt/bn/yangmin-priv-fashionmm/Checkpoints/wangzhen/valley/pool_adapter_stage2_llava1.5_double_product_redirect/checkpoint-55200
-data_path: /mnt/bn/yangmin-priv-fashionmm/Data/zhongheng/continue_pretrain_multi/data/train_data/CPT_data_sft_basic_zhunru.txt
+data_path: /mnt/bn/yangmin-priv-fashionmm/Data/zhongheng/continue_pretrain_multi/data/train_data/sample_from_all_mllm_for_train_v4.txt
 image_folder: /mnt/bn/yangmin-priv-fashionmm/Data/zhongheng/mllm_image/continut_pretrain
 project_name: product_continue_pretrian
 run_name: valley-pool_adapter-continue_pretrain-down-lora-v1-2
@@ -26,7 +26,7 @@ group_by_modality_length: True
 bf16: False
 fp16: True
 lora_enable: True
-output_dir: /mnt/bn/yangmin-priv-fashionmm/Data/zhongheng/continue_pretrain_multi/ckpt/valley-cn-7b-lora-product-cp-v1-2-baseline
+output_dir: /mnt/bn/yangmin-priv-fashionmm/Data/zhongheng/continue_pretrain_multi/ckpt/valley-cn-7b-lora-product-cp-v1-2-sft-only
 num_train_epochs: 5
 per_device_train_batch_size: 4
 per_device_eval_batch_size: 4
