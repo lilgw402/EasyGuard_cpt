@@ -158,7 +158,7 @@ def inference(rank, world_size, args):
                     max_new_tokens = 1024,
                     return_dict_in_generate= True if args.ouput_logits else False, output_scores= True if args.ouput_logits else False
                 )
-            print(output_ids)
+            # print(output_ids)
             if not args.ouput_logits: 
                 input_token_len = test_batch['input_ids'].unsqueeze(0).shape[1]
                 n_diff_input_output = (test_batch['input_ids'].unsqueeze(0) != output_ids[:, :input_token_len]).sum().item()
