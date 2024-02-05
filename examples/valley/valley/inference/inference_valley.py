@@ -7,6 +7,7 @@ import torch
 import os
 from valley.utils import disable_torch_init
 import os
+import yaml
 import random
 from tqdm import tqdm
 import torch.distributed as dist
@@ -17,7 +18,7 @@ from valley.util.config import DEFAULT_GANDALF_TOKEN
 from valley.util.data_util import KeywordsStoppingCriteria
 from peft import PeftConfig
 from transformers import set_seed
-from valley.data.dataset import LazySupervisedDataset, DataCollatorForSupervisedDataset
+from valley.data.dataset_cp import LazySupervisedDataset, DataCollatorForSupervisedDataset
 from valley.util.data_util import smart_tokenizer_and_embedding_resize
 from valley import conversation as conversation_lib
 os.environ['NCCL_DEBUG']=''
@@ -30,6 +31,10 @@ def standardization(data):
         mu = torch.mean(data)
         sigma = torch.std(data)
         return (data - mu) / sigma
+
+
+
+
 
 def inference(rank, world_size, args):
     set_seed(42)
@@ -54,7 +59,8 @@ def inference(rank, world_size, args):
     model_name = os.path.expanduser(args.model_name)
 
     # load model
-    if 'lora' in model_name:
+    # if 'lora' in model_name:
+    if args.lora:
         config = PeftConfig.from_pretrained(model_name)
         print('load old model weight and lora weight')
         model_old = Model.from_pretrained(model_name, torch_dtype=torch.float16)
@@ -132,11 +138,12 @@ def inference(rank, world_size, args):
 
     for test_batch in prog_bar:
         try:
+           
             test_batch = test_batch.tokenizer[0]
+           
             # gt_label = [test_batch.pop('gt_label')]
             for key in test_batch:
                 if key != 'product_id':
-                    # print(key)
                     test_batch[key] = test_batch[key].to(device)
             stop_str = conversation_lib.default_conversation.sep if conversation_lib.default_conversation.sep_style != conversation_lib.SeparatorStyle.TWO else conversation_lib.default_conversation.sep2
             keywords = [stop_str]
@@ -151,6 +158,7 @@ def inference(rank, world_size, args):
                     max_new_tokens = 1024,
                     return_dict_in_generate= True if args.ouput_logits else False, output_scores= True if args.ouput_logits else False
                 )
+            print(output_ids)
             if not args.ouput_logits: 
                 input_token_len = test_batch['input_ids'].unsqueeze(0).shape[1]
                 n_diff_input_output = (test_batch['input_ids'].unsqueeze(0) != output_ids[:, :input_token_len]).sum().item()
@@ -160,16 +168,35 @@ def inference(rank, world_size, args):
                 response = outputs
                 # print(response)
             if args.ouput_logits:
-                outputs = tokenizer.batch_decode(output_ids.sequences[:, -3:], skip_special_tokens=True)
-                scores = standardization(output_ids.scores[ 3])
+                # inputs = tokenizer.batch_decode(test_batch['input_ids'],skip_special_tokens=True)
+                input_token_len = test_batch['input_ids'].unsqueeze(0).shape[1]
+                n_diff_input_output = (test_batch['input_ids'].unsqueeze(0) != output_ids.sequences[:, :input_token_len]).sum().item()
+                if n_diff_input_output > 0:
+                    print(f'[Warning] {n_diff_input_output} output_ids are not the same as the input_ids')
+                outputs = tokenizer.batch_decode(output_ids.sequences[:, input_token_len:], skip_special_tokens=True)
+
+                # outputs = tokenizer.batch_decode(output_ids.sequences[:, -3:], skip_special_tokens=True)
+                # print("input",inputs)
+                # print("output",outputs)
+                print(len(output_ids.scores))
+                print(len(output_ids.scores[0]))
+                print(len(output_ids.scores[1]))
+                print(output_ids.scores[0])
+                scores = standardization(output_ids.scores[3])
                 standardization_score = scores[:,[3869,1939]]
                 standardization_logits = torch.softmax(standardization_score, dim=1).cpu().numpy().tolist()
                 response = [format(yes_logits, '.8f') for yes_logits, no_logits in standardization_logits]
 
             for i in range(len(response)):
                 # rf.write('\t'.join(['None', str(gt_label[i]), response[i].replace('\n','')]) + '\n')
-                rf.write(response[i].replace('\n','') + '\t' + test_batch['product_id'] + '\n')
-                rf.flush()
+                if args.ouput_logits:
+                    print(response[i])
+                    rf.write(response[i].replace('\n','') + '\t'+ outputs[i]+'\t' + test_batch['product_id'] + '\n')
+                    rf.flush()
+                else:
+                    print(response[i])
+                    rf.write(response[i].replace('\n','') + '\t' + test_batch['product_id'] + '\n')
+                    rf.flush()
 
         except Exception as e:
             traceback.print_exc()
@@ -189,26 +216,29 @@ def gather_result(args,world_size):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model-class", type=str, default="valley-product")
+    parser.add_argument("--model_class", type=str, default="valley-product")
     parser.add_argument("--language", type=str, default="chinese")
-    parser.add_argument("--model-name", type=str, default = '/mnt/bn/yangmin-priv-fashionmm/Data/zhongheng/continue_pretrain_output/valley-cn-7b-lora-product-cp-down-pool-10-epoch-v2/checkpoint-12000')
+    parser.add_argument("--model_name", type=str, default = '/mnt/bn/valley2/hezhongheng/continue_pretrain_multi/ckpt/v_2_1/sft_ckpt/checkpoint-3000')
     parser.add_argument("--video_data_path", type=str, required = False, default = None)
-    parser.add_argument("--data_path", type=str, required = False, default = '/mnt/bn/yangmin-priv-fashionmm/Data/sk/continue_data/shouyi/zhunru_test.json' )
+    parser.add_argument("--data_path", type=str, required = False, default = '/mnt/bn/valley2/hezhongheng/continue_pretrain_multi/data/test_data/sft_test.txt' )
     parser.add_argument("--video_folder", type=str, required = False, default = None)
-    parser.add_argument("--image_folder", type=str, required = False, default = '/mnt/bn/yangmin-priv-fashionmm/Data/zhongheng/mllm_image/continut_pretrain/')
-    parser.add_argument("--out_path", type=str, required = False, default = '/mnt/bn/yangmin-priv-fashionmm/Data/zhongheng/continue_pretrain_result/cp_7b_lora_pool_v1_0_down.txt' )
+    parser.add_argument("--image_folder", type=str, required = False, default = '/mnt/bn/valley2/hezhongheng/mllm_image/continut_pretrain/')
+    parser.add_argument("--out_path", type=str, required = False, default = '/mnt/bn/valley2/hezhongheng/continue_pretrain_multi/ckpt/v_2_1/sft_ckpt/checkpoint-3000/sft_result.txt' )
     parser.add_argument("--version", type=str, default="v0")
     parser.add_argument("--prompt_version", type=str, default="conv_prd_cp")
     parser.add_argument("--max_img_num", type=int, default=8)
     parser.add_argument("--image_aspect_ratio", type=str, default=None)
     parser.add_argument("--batch_size", type=int, required=False, default=1)
-    parser.add_argument("--ouput_logits", action="store_true", default=False)
+    parser.add_argument("--ouput_logits", action="store_true", default=True)
     parser.add_argument("--temperature", type = float, default=1)
-    parser.add_argument("--do-sample", action="store_true", default=False)
+    parser.add_argument("--do_sample", action="store_true", default=False)
     parser.add_argument("--DDP", action="store_true")
     parser.add_argument("--DDP_port", default = '12345')
     parser.add_argument("--world_size", type=int, default = 1)
+    parser.add_argument("--lora", default = True)
+
     args = parser.parse_args()
+    
 
     if args.DDP:
         mp.spawn( inference, args=(args.world_size, args), nprocs=args.world_size)

@@ -253,6 +253,7 @@ class LazySupervisedDataset(Dataset):
             # print('imgae_size', image.shape)
 
             # image exist in the data
+            # print(self.list_data_dict[i].keys())
             if 'image' in self.list_data_dict[i] or 'video' in self.list_data_dict[i]:
                 data_dict['image'] = image
             elif self.data_args.is_multimodal:
@@ -263,6 +264,9 @@ class LazySupervisedDataset(Dataset):
                 data_dict['gt_label'] = self.list_data_dict[i]['gt_label']
             if 'product_id' in self.list_data_dict[i]:
                 data_dict['product_id'] = self.list_data_dict[i]['product_id']
+            if 'id' in self.list_data_dict[i]:
+                data_dict['product_id'] = self.list_data_dict[i]['id']
+            
             # data_dict['source'] = sources
             return data_dict
         except Exception as e:
