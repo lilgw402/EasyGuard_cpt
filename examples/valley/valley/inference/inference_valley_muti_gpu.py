@@ -217,9 +217,9 @@ def gather_result(args):
     rank = utils.get_rank()
     num_worker = utils.get_world_size()
     if rank == 0:
-        with open(args.out_path, 'a+') as f:
+        with open(args.out_path, 'a+',encoding="utf-8") as f:
             for i in range(num_worker):
-                with open(args.out_path + ".worker_" + str(i), 'r') as tf:
+                with open(args.out_path + ".worker_" + str(i), 'r',encoding="utf-8") as tf:
                     tmp_result = tf.readlines()
                 f.writelines(tmp_result)
                 os.remove(args.out_path + ".worker_" + str(i))
