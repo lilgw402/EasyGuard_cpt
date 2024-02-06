@@ -262,6 +262,8 @@ class LazySupervisedDataset(Dataset):
                 data_dict['image'] = torch.zeros(1, 3, crop_size['height'], crop_size['width'])
             if 'gt_label' in self.list_data_dict[i]:
                 data_dict['gt_label'] = self.list_data_dict[i]['gt_label']
+            if 'label' in self.list_data_dict[i]:
+                data_dict['gt_label'] = self.list_data_dict[i]['label']
             if 'product_id' in self.list_data_dict[i]:
                 data_dict['product_id'] = self.list_data_dict[i]['product_id']
             if 'id' in self.list_data_dict[i]:
