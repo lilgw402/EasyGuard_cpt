@@ -318,8 +318,11 @@ class DataCollatorForSupervisedDataset(object):
                 batch['images'] = images
         
         if 'gt_label' in instances[0]:
-            gt_label = [instance['gt_label'] for instance in instances]
-            batch['gt_label'] = gt_label
+            try:
+                gt_label = [instance['gt_label'] for instance in instances]
+                batch['gt_label'] = gt_label
+            except:
+                pass
         return batch
 
 
