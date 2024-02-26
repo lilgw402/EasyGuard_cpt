@@ -45,6 +45,7 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 class ModelArguments:
     model_class: Optional[str] = field(default="valley")
     model_name_or_path: Optional[str] = field(default="facebook/opt-125m")
+    lora_model:  Optional[str] = field(default=None)
     version: Optional[str] = field(default="v0")
     vision_tower: Optional[str] = field(default=None)
     mm_vision_select_layer: Optional[int] = field(default=-1)   # default to the last layer
@@ -186,11 +187,14 @@ def find_all_linear_names(model):
         if any(mm_keyword in name for mm_keyword in multimodal_keywords):
             continue
         if isinstance(module, cls):
+            # print(name)
             names = name.split('.')
             lora_module_names.add(names[0] if len(names) == 1 else names[-1])
 
     if 'lm_head' in lora_module_names: # needed for 16-bit
         lora_module_names.remove('lm_head')
+    
+    # print(list(lora_module_names))
     return list(lora_module_names)
 
 
@@ -283,21 +287,31 @@ class LLMCallback(TrainerCallback):
 
 def train(args):
     global local_rank
+    
 
     parser = transformers.HfArgumentParser((ModelArguments, DataArguments, TrainingArguments))
     model_args, data_args, training_args = parser.parse_yaml_file(args.conf)
+
+    
+    if model_args.lora_model is not None:
+        training_args.from_lora = True
+        print("training from lora weight")
+
     compute_dtype = (torch.float16 if training_args.fp16 else (torch.bfloat16 if training_args.bf16 else torch.float32))
     training_args.learning_rate = float(training_args.learning_rate)
     os.environ['WANDB_PROJECT'] = data_args.project_name
 
     if model_args.model_class in ['valley-video', 'valley-product']: 
-        tokenizer = transformers.LlamaTokenizer.from_pretrained(
-            model_args.model_name_or_path,
-            cache_dir=training_args.cache_dir,
-            model_max_length=training_args.model_max_length,
-            padding_side="right",
-            use_fast=False,
-        )
+        if training_args.from_lora:
+            tokenizer = transformers.LlamaTokenizer.from_pretrained(os.path.dirname(model_args.lora_model), use_fast=False)
+        else:
+            tokenizer = transformers.LlamaTokenizer.from_pretrained(
+                model_args.model_name_or_path,
+                cache_dir=training_args.cache_dir,
+                model_max_length=training_args.model_max_length,
+                padding_side="right",
+                use_fast=False,
+            )
     elif model_args.model_class == 'mistral':
         tokenizer = transformers.AutoTokenizer.from_pretrained(
             model_args.model_name_or_path,
@@ -344,10 +358,12 @@ def train(args):
             )
         elif model_args.model_class == 'valley-product':
             model = ValleyProductLlamaForCausalLM.from_pretrained(
-            model_args.model_name_or_path,
-            cache_dir=training_args.cache_dir,
-            **bnb_model_from_pretrained_args
-            )
+                model_args.model_name_or_path,
+                cache_dir=training_args.cache_dir,
+                **bnb_model_from_pretrained_args
+                )
+            
+
         else:
             raise ValueError(f"Unknown Model Class.")
     else:
@@ -398,8 +414,57 @@ def train(args):
             if training_args.fp16:
                 model.to(torch.float16)
         rank0_print("Adding LoRA adapters...")
+        
+
         model = get_peft_model(model, lora_config)
+
+        # peft_all_params = model.state_dict()
+        # peft_lora_params = {peft_all_params[name] for name in new_state_dict}
+        if training_args.from_lora:
+
+            new_state_dict = dict()
+            model_old = ValleyProductLlamaForCausalLM.from_pretrained(model_args.lora_model, torch_dtype=torch.float16)
+            
+            lora_weight_path = os.path.join(model_args.lora_model, 'non_lora_trainables.bin')
+            
+            if os.path.exists(lora_weight_path):
+                non_lora_state_dict = torch.load(lora_weight_path)
+                
+                for key in non_lora_state_dict.keys():
+                    key_new = '.'.join(key.split('.')[2:])  # base_model.model.model.xxxx
+                    new_state_dict[key_new] = non_lora_state_dict[key]
+                
+                model_old_state = model_old.state_dict()
+                model_old_state.update(new_state_dict)
+                model_old.load_state_dict(model_old_state)
+
+                
+                lora_model = model_old
+                print('update model weight with lora weight')
+                lora_dict = lora_model.state_dict()
+
+                new_dict = model.state_dict()
+                model_key = new_dict.keys()
+                
+                for k,v in lora_dict.items():
+                    if f'base_model.model.{k}' not in model_key:
+                        print(f'"base_model.model.{k}" in lora weight but not in origin model')
+                    else:
+                        new_dict[f'base_model.model.{k}'] = v
+                
+                for item in model_key:
+                    item = '.'.join(item.split('.')[2:])
+                    if item not in lora_dict:
+                        print(f'"{item}" not in lora weight but  in origin model')
+                # new_dict.update(lora_dict)
+                model.load_state_dict(new_dict)
+                print('update model weight with lora weight down.')
+                
+
         model.print_trainable_parameters()
+
+
+
 
     if model_args.version == "v0":
         if tokenizer.pad_token is None:
