@@ -361,10 +361,31 @@ def train(args):
             )
         elif model_args.model_class == 'valley-product':
             model = ValleyProductLlamaForCausalLM.from_pretrained(
-                model_args.model_name_or_path,
-                cache_dir=training_args.cache_dir,
-                **bnb_model_from_pretrained_args
-                )
+                    model_args.model_name_or_path,
+                    cache_dir=training_args.cache_dir,
+                    **bnb_model_from_pretrained_args
+                    )
+
+            if training_args.from_lora and training_args.lora_merge:
+                print("merge non_lora_trainables.bin")
+                lora_weight_path = os.path.join(model_args.lora_model, 'non_lora_trainables.bin')
+            
+                if os.path.exists(lora_weight_path):
+                    non_lora_state_dict = torch.load(lora_weight_path)
+                new_state_dict={}
+                for key in non_lora_state_dict.keys():
+                    key_new = '.'.join(key.split('.')[2:])  # base_model.model.model.xxxx
+                    new_state_dict[key_new] = non_lora_state_dict[key]
+                
+                model_old_state = model.state_dict()
+                for k in new_state_dict.keys():
+                    if k not in model_old_state:
+                        print(k)
+                # print(model_old_state.keys())
+                model_old_state.update(new_state_dict)
+                model.load_state_dict(model_old_state)
+            
+                
             
 
         else:
