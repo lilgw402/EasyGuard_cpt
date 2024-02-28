@@ -120,6 +120,7 @@ class TrainingArguments(transformers.Seq2SeqTrainingArguments):
     lora_dropout: float = 0.05
     lora_weight_path: str = ""
     lora_bias: str = "none"
+    lora_merge: bool = False
     lora_save_strategy: str = 'no'
     mm_projector_lr: Optional[float] = None
     group_by_modality_length: bool = field(default=False)
@@ -296,6 +297,8 @@ def train(args):
     if model_args.lora_model is not None:
         training_args.from_lora = True
         print("training from lora weight")
+    else:
+        training_args.from_lora = False
 
     compute_dtype = (torch.float16 if training_args.fp16 else (torch.bfloat16 if training_args.bf16 else torch.float32))
     training_args.learning_rate = float(training_args.learning_rate)
@@ -397,7 +400,24 @@ def train(args):
             def make_inputs_require_grad(module, input, output):
                 output.requires_grad_(True)
             model.get_input_embeddings().register_forward_hook(make_inputs_require_grad)
+
+    if training_args.from_lora and training_args.lora_merge:
+        print("merge lora model then train model.")
+
+        from peft import PeftModel
+        
+        lora_model = PeftModel.from_pretrained(
+            model,
+            model_args.lora_model,
+            torch_dtype=torch.float16,
+        )
     
+        print("merge the LoRA")
+        model = lora_model.merge_and_unload()
+
+
+
+
     if training_args.lora_enable:
         from peft import LoraConfig, get_peft_model
         lora_config = LoraConfig(
@@ -414,14 +434,16 @@ def train(args):
             if training_args.fp16:
                 model.to(torch.float16)
         rank0_print("Adding LoRA adapters...")
+
+
         
 
         model = get_peft_model(model, lora_config)
 
         # peft_all_params = model.state_dict()
         # peft_lora_params = {peft_all_params[name] for name in new_state_dict}
-        if training_args.from_lora:
-
+        if training_args.from_lora and training_args.lora_merge == False:
+            print("not merge lora model, this operation will train lora on previous lora weight.")
             new_state_dict = dict()
             model_old = ValleyProductLlamaForCausalLM.from_pretrained(model_args.lora_model, torch_dtype=torch.float16)
             
