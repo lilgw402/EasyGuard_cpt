@@ -200,7 +200,8 @@ def inference(args):
                 out = out.replace('\n###', '').replace('\n##', '').strip()
 
                 if not args.ouput_logits:
-                    res = [str(id[i]), str(gt_label[i]), out]
+                    out = out.replace("\n","$")
+                    res = [str(id[i]), out]
                 else:
                     res = [str(id[i]), str(gt_label[i]), str(generated_scores[i]), out]
                 print(res)
@@ -240,7 +241,7 @@ if __name__ == "__main__":
     parser.add_argument("--max_img_num", type=int, default=8)
     parser.add_argument("--image_aspect_ratio", type=str, default=None)
     parser.add_argument("--batch_size", type=int, required=False, default=1)
-    parser.add_argument("--ouput_logits", action="store_true", default=True)
+    parser.add_argument("--ouput_logits", action="store_true", default=False)
     parser.add_argument("--temperature", type = float, default=1)
     parser.add_argument("--do_sample", action="store_true", default=False)
     parser.add_argument("--DDP", action="store_true")
@@ -248,7 +249,7 @@ if __name__ == "__main__":
     parser.add_argument("--world_size", type=int, default = 1)
     parser.add_argument("--lora", default = True)
     parser.add_argument('--dist_url', default='env://', help='url used to set up distributed training')
-    parser.add_argument('--max_new_tokens', type=int, default=300)
+    parser.add_argument('--max_new_tokens', type=int, default=150)
 
 
    
