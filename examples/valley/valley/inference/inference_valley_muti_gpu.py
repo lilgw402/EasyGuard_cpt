@@ -248,7 +248,7 @@ if __name__ == "__main__":
     parser.add_argument("--world_size", type=int, default = 1)
     parser.add_argument("--lora", default = True)
     parser.add_argument('--dist_url', default='env://', help='url used to set up distributed training')
-    parser.add_argument('--max_new_tokens', type=int, default=16)
+    parser.add_argument('--max_new_tokens', type=int, default=300)
 
 
    
