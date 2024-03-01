@@ -56,6 +56,7 @@ def inference(args):
     # if 'lora' in model_name:
     if args.lora:
         config = PeftConfig.from_pretrained(model_name)
+        
         print('load old model weight and lora weight')
         model_old = Model.from_pretrained(model_name, torch_dtype=torch.float16)
         print('load no lora model')
@@ -247,9 +248,10 @@ if __name__ == "__main__":
     parser.add_argument("--DDP", action="store_true")
     parser.add_argument("--DDP_port", default = '12345')
     parser.add_argument("--world_size", type=int, default = 1)
-    parser.add_argument("--lora", default = True)
+    parser.add_argument("--lora",  action="store_true", default=False)
     parser.add_argument('--dist_url', default='env://', help='url used to set up distributed training')
     parser.add_argument('--max_new_tokens', type=int, default=150)
+    parser.add_argument('--merge', type=bool, default=False)
 
 
    
