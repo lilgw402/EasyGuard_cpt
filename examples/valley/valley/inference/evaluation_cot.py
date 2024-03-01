@@ -3,6 +3,7 @@ import json
 import pandas as pd
 def process_cot_result(folder):
     file_list = os.listdir(folder)
+    id2cot= {}
     for cot_result_path in file_list:
         if 'cot' in cot_result_path:
             cot_result_path = os.path.join(folder,cot_result_path)
@@ -15,13 +16,13 @@ def process_cot_result(folder):
         if len(pred_lines) < 1:
             continue
 
-        id2cot= {}
+       
         for pred_line in pred_lines:
-            product_id = pred_line.strip().split()[0]
-            cot = (" ").join(pred_line.strip().split()[1:])
+            product_id = pred_line.strip().split('\t')[0]
+            cot = pred_line.replace(product_id,"")
             cot = cot.replace("$","\n")
             
-            # product_id = product_id.split("cot_test_")[-1]
+            product_id = product_id.split("cot_test_")[-1]
             
            
             id2cot[product_id] = cot
@@ -47,13 +48,14 @@ def process_cot_result(folder):
             all_json_data.append(line)
 
         # print(label,cate_label)
-    with open(f"{folder}/cot_result_trans.json",'r',encoding="utf-8") as f:
+    with open(f"{folder}/cot_result_trans.json",'w',encoding="utf-8") as f:
         for line in all_json_data:
             f.write(json.dumps(line,ensure_ascii=False))
             f.write("\n")
+            f.flush()
 
 
-folder = "/mnt/bn/valley2/hezhongheng/continue_pretrain_multi/ckpt/v_2_2/m_cot_ckpt/checkpoint-768"
+folder = "/mnt/bn/valley2/hezhongheng/continue_pretrain_multi/ckpt/v_2_2/m_cot_ckpt/checkpoint-1344"
 process_cot_result(folder)
    
 
