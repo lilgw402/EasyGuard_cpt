@@ -287,8 +287,17 @@ class DataCollatorForSupervisedDataset(object):
     def __call__(self, instances: Sequence[Dict]) -> Dict[str, torch.Tensor]:
         instances_no_error = []
         for ins in instances:
-            if type(ins) != tuple and len(ins["input_ids"]) < self.tokenizer.model_max_length:
+            
+           
+            ins["input_ids"] = ins["input_ids"][:self.tokenizer.model_max_length]
+            ins["labels"] = ins["labels"][:self.tokenizer.model_max_length]
+            # print("label_length",len(ins["labels"]))
+            # print("input_ids_length",len(ins["input_ids"]))
+
+            if type(ins) != tuple and len(ins["input_ids"]) <= self.tokenizer.model_max_length:
                 instances_no_error.append(ins)
+        if len(instances_no_error) < 1:
+            print("instance_count",len(instances_no_error))
         instances = instances_no_error
         input_ids, labels = tuple([instance[key] for instance in instances]
                                   for key in ("input_ids", "labels"))
