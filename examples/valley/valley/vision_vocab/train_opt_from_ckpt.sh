@@ -1,0 +1,28 @@
+
+deepspeed   valley/vision_vocab/train_opt.py  --deepspeed valley/vision_vocab/zero_config/zero2.json \
+            --model_name_or_path facebook/opt-125m \
+            --pretrained_stage1_model  /mnt/bn/valley2/hezhongheng/continue_pretrain_multi/vision_vocab/base_ckpt/vary_extra_encoder.pth \
+            --conversation_version opt \
+            --freeze_vision_tower False \
+            --freeze_lm_model False \
+            --use_im_start_end True \
+            --fp16 True \
+            --per_device_eval_batch_size 4 \
+            --gradient_accumulation_steps 1 \
+            --evaluation_strategy "no" \
+            --save_strategy "steps" \
+            --save_steps 500 \
+            --save_total_limit 1 \
+            --weight_decay 0. \
+            --warmup_ratio 0.03 \
+            --lr_scheduler_type "cosine" \
+            --logging_steps 1 \
+            --model_max_length 4096 \
+            --gradient_checkpointing True \
+            --dataloader_num_workers 4 \
+            --report_to none \
+            --per_device_train_batch_size 8 \
+            --num_train_epochs 1 \
+            --learning_rate 5e-5 \
+            --datasets  product_caption \
+            --output_dir /mnt/bn/valley2/hezhongheng/continue_pretrain_multi/vision_vocab/ckpt
