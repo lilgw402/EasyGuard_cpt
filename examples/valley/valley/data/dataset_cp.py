@@ -287,7 +287,8 @@ class DataCollatorForSupervisedDataset(object):
     def __call__(self, instances: Sequence[Dict]) -> Dict[str, torch.Tensor]:
         instances_no_error = []
         for ins in instances:
-            
+            if type(ins) == tuple:
+                continue
            
             ins["input_ids"] = ins["input_ids"][:self.tokenizer.model_max_length]
             ins["labels"] = ins["labels"][:self.tokenizer.model_max_length]
