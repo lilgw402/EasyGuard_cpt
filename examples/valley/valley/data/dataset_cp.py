@@ -89,8 +89,8 @@ class LazySupervisedDataset(Dataset):
         print(list_data_dict[:2])
 
         #对于视频数据
-        breakpoint()
-        if data_args.video_data_path is None:
+        
+        if data_args.video_data_path is None: #True
             list_video_data_dict = []
         elif os.path.isfile(data_args.video_data_path):
             list_video_data_dict = json.load(open(data_args.video_data_path, "r")) if data_args.video_data_path else []
@@ -109,7 +109,7 @@ class LazySupervisedDataset(Dataset):
         self.data_args = data_args
         self.inference = inference
         self.image_path = data_args.image_folder
-        print('-------image_path-------:', self.image_path)
+        print('-------image_path-------:', self.image_path) #/mnt/bn/valley2/hezhongheng/mllm_image/continut_pretrain
 
     def __len__(self):
         return len(self.list_data_dict)

@@ -366,24 +366,24 @@ def train(args):
     os.environ['WANDB_PROJECT'] = data_args.project_name
     breakpoint()
     #根据 `model_class` 初始化了词分析器（tokenizer），它可以是 `LlamaTokenizer` 或者 `AutoTokenizer`，并设置了最大模型长度和缓存目录。
-    if model_args.model_class in ['valley-video', 'valley-product']: 
-        tokenizer = transformers.LlamaTokenizer.from_pretrained(
-            model_args.model_name_or_path,
-            cache_dir=training_args.cache_dir,
-            model_max_length=training_args.model_max_length,
-            padding_side="right",
-            use_fast=False,
-        )
-    elif model_args.model_class == 'mistral':
-        tokenizer = transformers.AutoTokenizer.from_pretrained(
-            model_args.model_name_or_path,
-            cache_dir=training_args.cache_dir,
-            model_max_length=training_args.model_max_length,
-            padding_side="right",
-            use_fast=False,
-        )
-    else:
-        raise ValueError(f"Unknown Model Class.")
+    # if model_args.model_class in ['valley-video', 'valley-product']: 
+    #     tokenizer = transformers.LlamaTokenizer.from_pretrained(
+    #         model_args.model_name_or_path,
+    #         cache_dir=training_args.cache_dir,
+    #         model_max_length=training_args.model_max_length,
+    #         padding_side="right",
+    #         use_fast=False,
+    #     )
+    # elif model_args.model_class == 'mistral':
+    #     tokenizer = transformers.AutoTokenizer.from_pretrained(
+    #         model_args.model_name_or_path,
+    #         cache_dir=training_args.cache_dir,
+    #         model_max_length=training_args.model_max_length,
+    #         padding_side="right",
+    #         use_fast=False,
+    #     )
+    # else:
+    #     raise ValueError(f"Unknown Model Class.")
 
     #为 Bits and Bytes 设置了额外配置，这是 Hugging Face 用于训练低比特权重模型的实验方法    
     bnb_model_from_pretrained_args = {}
@@ -608,10 +608,12 @@ def train(args):
     
 
     if list(pathlib.Path(training_args.output_dir).glob("checkpoint-*")):
+        breakpoint()
         # Lora model is not support this resume branch, make sure your lora out_dir is empty.
         print('resume')
         trainer.train(resume_from_checkpoint=True)
     else:
+        breakpoint()
         trainer.train() #开始训练
     
     trainer.save_state()
