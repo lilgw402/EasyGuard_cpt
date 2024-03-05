@@ -237,7 +237,7 @@ class ValleyProductLlamaForCausalLM(LlamaForCausalLM, ValleyProductMetaForCausal
 
     def __init__(self, config):
         super(LlamaForCausalLM, self).__init__(config)
-        self.model = ValleyProductLlamaModel(config)
+        self.model = ValleyProductLlamaModel(config) #是模型的主干网络，在sft的时候会被freeze_backbone，在contuin training的时候不会被冻结
 
         self.lm_head = nn.Linear(config.hidden_size, config.vocab_size, bias=False)
 
@@ -249,6 +249,7 @@ class ValleyProductLlamaForCausalLM(LlamaForCausalLM, ValleyProductMetaForCausal
     def get_model(self):
         return self.model
 
+    #根据给定的文本消息和图像数量构建模型输入
     def build_inputs(self, tokenizer, messages, num_image=1, image_token_len = 224,if_context=False, conv = None):
         tokenizer.padding_side = 'left'
         prompt = ''
@@ -256,9 +257,9 @@ class ValleyProductLlamaForCausalLM(LlamaForCausalLM, ValleyProductMetaForCausal
         for sentence in sources:
             sentence['value'] = sentence['content']
             sentence.pop('content')
-        
+        ##对消息进行预处理，这可能涉及将文本信息与图像信息整合为模型可接收的格式。此函数调用表明输入是多模态的。
         messages = preprocess_multimodal([sources],{'is_multimodal': True})[0]
-        
+        #建立一个角色映射字典 `roles`，用于转换消息中提及的角色到对话实例(`conv`)中指定的角色
         roles = {"user": conv.roles[0], "assistant": conv.roles[1]}
 
         for i, message in enumerate(messages):
@@ -280,6 +281,7 @@ class ValleyProductLlamaForCausalLM(LlamaForCausalLM, ValleyProductMetaForCausal
         conv.append_message(conv.roles[1], None)
         prompt = conv.get_prompt()
         print(prompt)
+        #将生成的 `prompt` 与图像token整合，并返回tensor格式(`'pt'`)的模型输入ID列表
         input_id = tokenizer_image_token(prompt, tokenizer, return_tensors='pt', image_token_len = image_token_len, num_image = num_image)
         return input_id
     
@@ -379,11 +381,12 @@ class ValleyProductLlamaForCausalLM(LlamaForCausalLM, ValleyProductMetaForCausal
         )
 
         hidden_states = outputs[0]
-        logits = self.lm_head(hidden_states)
+        logits = self.lm_head(hidden_states) #通过线性层计算预测的词表分布（logits）
 
         loss = None
         if labels is not None:
             # Shift so that tokens < n predict n
+            #如果提供了真实标签，计算损失。损失计算通常涉及将预测向前移动一位，即让第 n-1 个token去预测第 n 个token
             shift_logits = logits[..., :-1, :].contiguous()
             shift_labels = labels[..., 1:].contiguous()
             # Flatten the tokens

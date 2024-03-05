@@ -81,12 +81,15 @@ class LazySupervisedDataset(Dataset):
         super(LazySupervisedDataset, self).__init__()
         
         list_data_dict = []
+        breakpoint()
         if os.path.isfile(data_path) and data_path[-4:] != 'json':
             list_data_dict = [json.loads(data) for data in open(data_path, 'r').readlines()]
         else:
             list_data_dict = json.load(open(data_path, "r"))
         print(list_data_dict[:2])
 
+        #对于视频数据
+        breakpoint()
         if data_args.video_data_path is None:
             list_video_data_dict = []
         elif os.path.isfile(data_args.video_data_path):
@@ -97,6 +100,7 @@ class LazySupervisedDataset(Dataset):
             for file_name in tqdm(video_data_path_list):
                 data_path = os.path.join(data_args.video_data_path, file_name)
                 list_video_data_dict += json.load(open(data_path, "r"))
+        #之后将视频数据字典列表 `list_video_data_dict` 和 `list_data_dict` 合并
         list_data_dict = list_video_data_dict + list_data_dict
         random.shuffle(list_data_dict)
         print("Formatting inputs...Skip in lazy mode")
@@ -235,6 +239,7 @@ class LazySupervisedDataset(Dataset):
                 has_image=('image' in self.list_data_dict[i] or 'video' in self.list_data_dict[i]),
                 only_mask_system= self.data_args.only_mask_system,
                 inference = self.inference)
+            breakpoint()
             if isinstance(i, int):
                 data_dict = dict(input_ids=data_dict["input_ids"][0],
                                 labels=data_dict["labels"][0])
@@ -268,7 +273,7 @@ class LazySupervisedDataset(Dataset):
                 data_dict['product_id'] = self.list_data_dict[i]['product_id']
             if 'id' in self.list_data_dict[i]:
                 data_dict['product_id'] = self.list_data_dict[i]['id']
-            
+            breakpoint()
             # data_dict['source'] = sources
             return data_dict
         except Exception as e:

@@ -471,7 +471,7 @@ def train(args):
     #如果启用了LoRA，将会设置LoRA配置，并且根据LoRA配置适配模型
     if training_args.lora_enable: #True
         from peft import LoraConfig, get_peft_model
-        lora_config = LoraConfig(
+        lora_config = LoraConfig( #创建了一个 `LoraConfig` 的实例 `lora_config`，并使用了几个来自 `training_args` 的参数（比如 `lora_r` 和 `lora_alpha`）来配置LoRA的参数
             r=training_args.lora_r,
             lora_alpha=training_args.lora_alpha,
             target_modules=find_all_linear_names(model),
@@ -479,7 +479,7 @@ def train(args):
             bias=training_args.lora_bias,
             task_type="CAUSAL_LM",
         )
-        if training_args.bits == 16:
+        if training_args.bits == 16: #进行数值类型转换
             if training_args.bf16:
                 model.to(torch.bfloat16)
             if training_args.fp16:
@@ -487,25 +487,27 @@ def train(args):
 
 
         rank0_print("Adding LoRA adapters...")
-        model = get_peft_model(model, lora_config)
+        model = get_peft_model(model, lora_config) #使用LoRA配置更新模型，为模型添加LoRA适配器。
 
 
         if model_args.lora_model != None and training_args.lora_merge == False:
             print("lora chekpoint using: Continue Training.")
 
-            peft_model_dict = model.state_dict()
+            peft_model_dict = model.state_dict() #获取当前模型的状态字典
 
 
-            ## replcae LoRA weight
+            ## replcae LoRA weight 表明要用LoRA权重替换PEFT模型中的权重
             print("replace peft model with  LoRA weight..")
+            #根据LoRA模型的路径加载LoRA参数，创建了一个LoRA参数模型 `LoRA_param_model`
             LoRA_param_model = ValleyProductLlamaForCausalLM.from_pretrained(model_args.lora_model, torch_dtype=torch.float16)
+            #将LoRA参数模型的状态字典 `lora_param_dict` 中的参数复制到 `peft_model_dict` 中。
             lora_param_dict = LoRA_param_model.state_dict()
             for key in lora_param_dict.keys():
                 new_key = f"base_model.model.{key}"
                 assert new_key in peft_model_dict
                 peft_model_dict[new_key] = lora_param_dict[key]
             
-            ## replcae w/o LoRA weight
+            ## replcae w/o LoRA weight 如果存在不包含LoRA参数的权重文件 `non_lora_trainables.bin`，执行类似的权重替换操作。
             if os.path.exists(os.path.join(model_args.lora_model, 'non_lora_trainables.bin')):
                 print("replace peft model with non LoRA weight..")
                 non_lora_state_dict = torch.load(os.path.join(model_args.lora_model, 'non_lora_trainables.bin'))
@@ -587,8 +589,10 @@ def train(args):
     
     #根据tokenizer和其他数据参数创建了一个数据模块用于数据预处理和加载到Trainer中
     '''数据集构建'''
+    breakpoint()
     data_module = make_supervised_data_module(tokenizer=tokenizer,
                                             data_args=data_args)
+    breakpoint()
     callback_class =  LLMCallback
     
     trainer = ValleyTrainer(model=model,
