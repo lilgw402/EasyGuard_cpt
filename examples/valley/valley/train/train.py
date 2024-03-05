@@ -49,9 +49,9 @@ class ModelArguments:
     version: Optional[str] = field(default="v0")
     vision_tower: Optional[str] = field(default=None)
     mm_vision_select_layer: Optional[int] = field(default=-1)   # default to the last layer
-    pretrain_mm_mlp_adapter: Optional[str] = field(default=None)
+    pretrain_mm_mlp_adapter: Optional[str] = field(default=None) #预训练的多层感知器适配器的路径。
     mm_use_im_start_end: bool = field(default=False)
-    tune_llm_layer: str=field(default= None)
+    tune_llm_layer: str=field(default= None) #指定大语言模型的调整
     patch_pooling_method: str=field(default='mean')
     mm_projector_type: Optional[str] = field(default='linear')
     mm_use_im_patch_token: bool = field(default=True)
@@ -93,7 +93,7 @@ class TrainingArguments(transformers.Seq2SeqTrainingArguments):
     cache_dir: Optional[str] = field(default=None)
     optim: str = field(default="adamw_torch")
     remove_unused_columns: bool = field(default=False)
-    freeze_mm_mlp_adapter: bool = field(default=False)
+    freeze_mm_mlp_adapter: bool = field(default=False) #决定是否冻结模型的特定部分。
     freeze_backbone: bool = field(default=False)
     model_max_length: int = field(
         default=512,
@@ -102,6 +102,7 @@ class TrainingArguments(transformers.Seq2SeqTrainingArguments):
             "Maximum sequence length. Sequences will be right padded (and possibly truncated)."
         },
     )
+    #与模型量化相关的参数
     double_quant: bool = field(
         default=True,
         metadata={"help": "Compress the quantization statistics through double quantization."}
@@ -114,6 +115,7 @@ class TrainingArguments(transformers.Seq2SeqTrainingArguments):
         default=16,
         metadata={"help": "How many bits to use."}
     )
+    #LoRA相关设置
     lora_enable: bool = False
     lora_r: int = 16
     lora_alpha: int = 32
@@ -125,7 +127,7 @@ class TrainingArguments(transformers.Seq2SeqTrainingArguments):
     mm_projector_lr: Optional[float] = None
     group_by_modality_length: bool = field(default=False)
 
-
+#模型中的参数移动到 CPU，并深拷贝，以防被分布式训练库（如Deepspeed的Zero）清空
 def maybe_zero_3(param, ignore_status=False, name=None):
     from deepspeed import zero
     from deepspeed.runtime.zero.partition_parameters import ZeroParamStatus
@@ -142,8 +144,7 @@ def maybe_zero_3(param, ignore_status=False, name=None):
 
 
 
-
-
+# 根据拥有 "lora_" 或 "bias" 前缀的策略选择参数并处理：将选中的参数移动到 CPU。策略不同，选择参数的范围也不同。
 # Borrowed from peft.utils.get_peft_model_state_dict
 def get_peft_state_maybe_zero_3(named_params, bias):
     if bias == "none":
@@ -169,7 +170,7 @@ def get_peft_state_maybe_zero_3(named_params, bias):
     to_return = {k: maybe_zero_3(v, ignore_status=True) for k, v in to_return.items()}
     return to_return
 
-
+#选择模型中没有 "lora_" 前缀的参数，使用 `maybe_zero_3` 处理并选择参数。
 def get_peft_state_non_lora_maybe_zero_3(named_params, require_grad_only=True):
     to_return = {k: t for k, t in named_params if "lora_" not in k}
     if require_grad_only:
@@ -177,13 +178,13 @@ def get_peft_state_non_lora_maybe_zero_3(named_params, require_grad_only=True):
     to_return = {k: maybe_zero_3(v, ignore_status=True).cpu() for k, v in to_return.items()}
     return to_return
 
-
+#选择模型中匹配特定关键字的参数，参数被选中后，通过 `maybe_zero_3` 保存到 CPU。
 def get_mm_adapter_state_maybe_zero_3(named_params, keys_to_match):
     to_return = {k: t for k, t in named_params if any(key_match in k for key_match in keys_to_match)}
     to_return = {k: maybe_zero_3(v, ignore_status=True).cpu() for k, v in to_return.items()}
     return to_return
 
-
+#在模型架构中找到所有的 `torch.nn.Linear` 模块，遍历模型的所有子模块，并排除所有包含指定关键字的模块
 def find_all_linear_names(model):
     cls = torch.nn.Linear
     lora_module_names = set()
@@ -202,7 +203,7 @@ def find_all_linear_names(model):
     # print(list(lora_module_names))
     return list(lora_module_names)
 
-
+#安全地保存使用 Hugging Face `Trainer` 类训练的模型
 def safe_save_model_for_hf_trainer(trainer: transformers.Trainer,
                                    output_dir: str):
     """Collects the state dict and dump to disk."""
@@ -242,6 +243,7 @@ def safe_save_model_for_hf_trainer(trainer: transformers.Trainer,
         trainer._save(output_dir, state_dict=cpu_state_dict)  # noqa
 
 
+#回调是机器学习训练过程中用来定义和执行在特定时刻发生的行为的一种工具。在Hugging Face的训练器（Trainer）中，你可以定义自己的回调来增强训练过程或包含额外的日志、保存逻辑等
 class LLMCallback(TrainerCallback):
     "A callback that output infomation and do some operators"
 
@@ -292,7 +294,6 @@ class LLMCallback(TrainerCallback):
 
 
 def load_model(model_args,training_args):
-
 
     if model_args.lora_model is not None:
         print("training from lora checkpoint.")
@@ -353,19 +354,18 @@ def load_model(model_args,training_args):
 
 
 def train(args):
+    breakpoint()
     global local_rank
-    
-
+    #分别定义了模型的结构、训练数据以及训练过程
     parser = transformers.HfArgumentParser((ModelArguments, DataArguments, TrainingArguments))
     model_args, data_args, training_args = parser.parse_yaml_file(args.conf)
-
-    
    
-
+    #标志确定训练的精度（`torch.float16`、`torch.bfloat16` 或 `torch.float32`）:torch.float16
     compute_dtype = (torch.float16 if training_args.fp16 else (torch.bfloat16 if training_args.bf16 else torch.float32))
     training_args.learning_rate = float(training_args.learning_rate)
     os.environ['WANDB_PROJECT'] = data_args.project_name
-
+    breakpoint()
+    #根据 `model_class` 初始化了词分析器（tokenizer），它可以是 `LlamaTokenizer` 或者 `AutoTokenizer`，并设置了最大模型长度和缓存目录。
     if model_args.model_class in ['valley-video', 'valley-product']: 
         tokenizer = transformers.LlamaTokenizer.from_pretrained(
             model_args.model_name_or_path,
@@ -384,7 +384,8 @@ def train(args):
         )
     else:
         raise ValueError(f"Unknown Model Class.")
-        
+
+    #为 Bits and Bytes 设置了额外配置，这是 Hugging Face 用于训练低比特权重模型的实验方法    
     bnb_model_from_pretrained_args = {}
     if training_args.bits in [4, 8]:
         from transformers import BitsAndBytesConfig
@@ -405,7 +406,7 @@ def train(args):
 
     
     data_args.model_class = model_args.model_class
-
+    #根据 `vision_tower`，会初始化不同类别的模型，可能是 `ValleyVideoLlamaForCausalLM`、`ValleyMistralForCausalLM` 等。这些模型会加载之前配置的预设设置。
     if model_args.vision_tower is not None:
         if  model_args.model_class == 'valley-video': 
             model = ValleyVideoLlamaForCausalLM.from_pretrained(
@@ -426,6 +427,7 @@ def train(args):
             #         cache_dir=training_args.cache_dir,
             #         **bnb_model_from_pretrained_args
             #         )
+            breakpoint()
 
 
         else:
@@ -445,16 +447,18 @@ def train(args):
             )
         else:
             raise ValueError(f"Unknown Model Class.")
-
+    breakpoint()        
+    #如果设置了 `freeze_backbone`，则会冻结模型中的参数，防止在训练过程中被更新。
     model.config.use_cache = False   
-    if training_args.freeze_backbone:
+    if training_args.freeze_backbone: #True
         model.model.requires_grad_(False)
 
     if training_args.bits in [4, 8]:
         from peft import prepare_model_for_kbit_training
         model.config.torch_dtype=(torch.float32 if training_args.fp16 else (torch.bfloat16 if training_args.bf16 else torch.float32))
         model = prepare_model_for_kbit_training(model, use_gradient_checkpointing=training_args.gradient_checkpointing)
-
+    
+    #如果启用了 `gradient_checkpointing`，则会修改模型以支持梯度检查点，以节省训练期间的内存
     if training_args.gradient_checkpointing:
         if hasattr(model, "enable_input_require_grads"):
             model.enable_input_require_grads()
@@ -464,8 +468,8 @@ def train(args):
             model.get_input_embeddings().register_forward_hook(make_inputs_require_grad)
 
    
-
-    if training_args.lora_enable:
+    #如果启用了LoRA，将会设置LoRA配置，并且根据LoRA配置适配模型
+    if training_args.lora_enable: #True
         from peft import LoraConfig, get_peft_model
         lora_config = LoraConfig(
             r=training_args.lora_r,
@@ -519,7 +523,7 @@ def train(args):
 
 
 
-
+    #根据 `model_args.version` 调整tokenizer中的填充token的处理方式，填充token可能被设置为特殊的 `[PAD]` token、`unk_token` 或由 version 指明的对话模板来决定。
     if model_args.version == "v0":
         if tokenizer.pad_token is None:
             smart_tokenizer_and_embedding_resize(
@@ -538,6 +542,8 @@ def train(args):
 
     if data_args.prompt_version is not None:
         conversation_lib.default_conversation = conversation_lib.conv_templates[data_args.prompt_version]
+    breakpoint()
+    #如果存在 `vision_tower` 并且表示需要进行多模态训练，将会用各种视觉处理设置配置模型，并初始化视觉相关组件。
     if model_args.vision_tower is not None:
         model.get_model().initialize_vision_modules(
             model_args=model_args,
@@ -578,7 +584,9 @@ def train(args):
         training_args.use_im_start_end = model_args.mm_use_im_start_end
         model.config.mm_use_im_patch_token = model_args.mm_use_im_patch_token
         model.initialize_vision_tokenizer(model_args, tokenizer=tokenizer)
-
+    
+    #根据tokenizer和其他数据参数创建了一个数据模块用于数据预处理和加载到Trainer中
+    '''数据集构建'''
     data_module = make_supervised_data_module(tokenizer=tokenizer,
                                             data_args=data_args)
     callback_class =  LLMCallback
@@ -600,12 +608,13 @@ def train(args):
         print('resume')
         trainer.train(resume_from_checkpoint=True)
     else:
-        trainer.train()
+        trainer.train() #开始训练
     
     trainer.save_state()
 
     model.config.use_cache = True
 
+    #训练后，保存模型状态，包括具体的LoRA和非LoRA参数组的保存策略
     if training_args.lora_enable:
         state_dict = get_peft_state_maybe_zero_3(
             model.named_parameters(), training_args.lora_bias
