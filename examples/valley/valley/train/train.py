@@ -607,14 +607,14 @@ def train(args):
     
     
 
-    if list(pathlib.Path(training_args.output_dir).glob("checkpoint-*")):
-        breakpoint()
-        # Lora model is not support this resume branch, make sure your lora out_dir is empty.
-        print('resume')
-        trainer.train(resume_from_checkpoint=True)
-    else:
-        breakpoint()
-        trainer.train() #开始训练
+    # if list(pathlib.Path(training_args.output_dir).glob("checkpoint-*")):
+    #     breakpoint()
+    #     # Lora model is not support this resume branch, make sure your lora out_dir is empty.
+    #     print('resume')
+    #     trainer.train(resume_from_checkpoint=True)
+    # else:
+    breakpoint()
+    trainer.train() #开始训练
     
     trainer.save_state()
 

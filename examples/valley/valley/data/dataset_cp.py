@@ -133,6 +133,7 @@ class LazySupervisedDataset(Dataset):
 
     def __getitem__(self, i) -> Dict[str, torch.Tensor]:
         sources = self.list_data_dict[i]
+        print("sources---------------------",sources)
         try:
             if isinstance(i, int):
                 sources = [sources]
@@ -239,7 +240,7 @@ class LazySupervisedDataset(Dataset):
                 has_image=('image' in self.list_data_dict[i] or 'video' in self.list_data_dict[i]),
                 only_mask_system= self.data_args.only_mask_system,
                 inference = self.inference)
-            breakpoint()
+            
             if isinstance(i, int):
                 data_dict = dict(input_ids=data_dict["input_ids"][0],
                                 labels=data_dict["labels"][0])
@@ -273,7 +274,7 @@ class LazySupervisedDataset(Dataset):
                 data_dict['product_id'] = self.list_data_dict[i]['product_id']
             if 'id' in self.list_data_dict[i]:
                 data_dict['product_id'] = self.list_data_dict[i]['id']
-            breakpoint()
+            print("data_dict===============",data_dict)
             # data_dict['source'] = sources
             return data_dict
         except Exception as e:
